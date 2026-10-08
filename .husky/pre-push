@@ -1,0 +1,38 @@
+#!/bin/sh
+# pre-push-gate.sh — CANONICAL template (harness-memory). Vendored per-repo as the pre-push hook
+# (.githooks/pre-push, or .husky/pre-push for husky repos). POSIX sh — works under both.
+#
+# THE fleet push gate: "commit freely, gate on push" (LLNZ standing-decisions, 2026-07-11),
+# mechanically enforced. A local commit costs nothing; a push triggers CI / deploy / publishes
+# to a public-grade or personal remote — so push is the deliberate action.
+#
+# Behavior:
+#   • ALLOW_PUSH=1 git push …   → allowed (an agent sets this ONLY after explicit user approval;
+#                                 /ship-style commands set it as part of the approved flow).
+#   • Human at a terminal        → interactive y/N confirm on /dev/tty (agent shells have no tty,
+#                                 verified 2026-07-11, so agents can never take this path).
+#   • Neither                    → blocked with instructions.
+#
+# git invokes pre-push with: $1 = remote name, $2 = remote URL (refs on stdin — unused here).
+
+remote="${1:-?}"; url="${2:-?}"
+
+if [ "${ALLOW_PUSH:-}" = "1" ]; then
+  exit 0
+fi
+
+if sh -c ': < /dev/tty' 2>/dev/null; then
+  printf 'push gate: push to %s (%s)? [y/N] ' "$remote" "$url" > /dev/tty
+  read -r answer < /dev/tty
+  case "$answer" in
+    y|Y|yes|YES) exit 0 ;;
+    *) echo "push gate: declined." >&2; exit 1 ;;
+  esac
+fi
+
+cat >&2 <<EOF
+push gate: BLOCKED — push to '$remote' ($url) requires explicit approval.
+This repo commits freely but gates on push (CI/deploy/public/personal remote).
+If the user has approved this push, re-run with:  ALLOW_PUSH=1 git push …
+EOF
+exit 1

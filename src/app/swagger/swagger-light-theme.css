@@ -1,0 +1,10 @@
+/* Force Swagger UI to use light theme */
+.swagger-light-theme {
+  color-scheme: light !important;
+  background: white !important;
+}
+
+.swagger-light-theme .swagger-ui {
+  background: white !important;
+  color: #3b4151 !important;
+}

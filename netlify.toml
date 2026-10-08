@@ -1,0 +1,14 @@
+# Next.js on Netlify (serverless functions + edge middleware). See docs/NETLIFY.md.
+# Builds come from Netlify's own GitHub integration; nothing in .github/workflows deploys.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # The lockfile was generated with legacy peer deps; plain `npm ci` refuses it.
+  NPM_FLAGS = "--legacy-peer-deps"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

@@ -1,0 +1,37 @@
+services:
+  next-tt:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      - ALLOW_NEW_REGISTRATIONS=${ALLOW_NEW_REGISTRATIONS:-false}
+      - SCW_ACCESS_KEY=${SCW_ACCESS_KEY}
+      - SCW_SECRET_KEY=${SCW_SECRET_KEY}
+      - SCALEWAY_BUCKET=${SCALEWAY_BUCKET}
+      - SCW_DEFAULT_REGION=${SCW_DEFAULT_REGION}
+      - SCALEWAY_ENDPOINT=${SCALEWAY_ENDPOINT}
+      - JWT_SECRET=${JWT_SECRET}
+      - USE_SECURE_COOKIES=${USE_SECURE_COOKIES:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_DIR=/app/logs
+      - MAX_UPLOADS_PER_IP_HOUR=${MAX_UPLOADS_PER_IP_HOUR:-10}
+      - MAX_UPLOADS_PER_USER_HOUR=${MAX_UPLOADS_PER_USER_HOUR:-20}
+      - MAX_SYSTEM_BYTES_24H=${MAX_SYSTEM_BYTES_24H:-1073741824}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - NOTIFY_EMAIL_TO=${NOTIFY_EMAIL_TO:-}
+      - NOTIFY_EMAIL_FROM=${NOTIFY_EMAIL_FROM:-noreply@tomas-tello.stream}
+      - UPLOAD_CHUNK_SIZE_MB=${UPLOAD_CHUNK_SIZE_MB:-5}
+      - ENABLE_API_DOCS=${ENABLE_API_DOCS:-false}
+      - UPLOAD_MODE=${UPLOAD_MODE:-relay}
+    volumes:
+      - app-logs:/app/logs
+    restart: unless-stopped
+    image: 192.168.254.85:3000/luis/next-tt:latest
+
+volumes:
+  app-logs:

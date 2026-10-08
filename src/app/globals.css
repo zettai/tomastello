@@ -1,0 +1,191 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+:root {
+  /* Accent */
+  --color-primary: #9ef01a;
+  --color-primary-hover: #b5ff30;
+  --color-primary-light: #9ef01a;
+  --color-primary-lighter: #c8ff6a;
+
+  /* Backgrounds */
+  --background: #111111;
+  --background-secondary: #181818;
+  --background-tertiary: #1e1e1e;
+
+  /* Text */
+  --foreground: #efefef;
+  --foreground-secondary: #a0a0a0;
+  --foreground-tertiary: #666666;
+
+  /* Borders */
+  --border: #2a2a2a;
+  --border-light: #3a3a3a;
+  --border-dark: #1a1a1a;
+  --border-focus: #9ef01a;
+
+  /* Title bar */
+  --title-bar-bg: #111111;
+  --title-bar-text: #efefef;
+  --title-bar-border: #9ef01a;
+
+  /* Admin — same palette */
+  --admin-bg: #111111;
+  --admin-bg-secondary: #181818;
+  --admin-bg-tertiary: #1e1e1e;
+  --admin-text: #efefef;
+  --admin-text-secondary: #a0a0a0;
+  --admin-border-light: #3a3a3a;
+  --admin-border-dark: #1a1a1a;
+  --admin-title-bg: #111111;
+  --admin-title-text: #efefef;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-space-mono), 'Courier New', monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+audio {
+  color-scheme: dark;
+}
+
+/* Window */
+.retro-window {
+  border: 1px solid var(--border);
+  background: var(--background-secondary);
+}
+
+.retro-inset {
+  border: 1px solid var(--border);
+  background: var(--background);
+}
+
+/* Buttons */
+.retro-button {
+  border: 1px solid var(--border-light);
+  background: transparent;
+  color: var(--foreground);
+  padding: 4px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.retro-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.retro-button:active {
+  background: var(--background-secondary);
+}
+
+/* Title bars */
+.retro-title-bar {
+  background: var(--title-bar-bg);
+  color: var(--title-bar-text);
+  padding: 6px 10px;
+  font-weight: bold;
+  border-bottom: 2px solid var(--title-bar-border);
+  letter-spacing: 0.05em;
+}
+
+/* Inputs */
+.retro-input,
+.retro-textarea {
+  border: 1px solid var(--border-light);
+  background: var(--background);
+  color: var(--foreground);
+  padding: 6px 10px;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.retro-input:focus,
+.retro-textarea:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.retro-input::placeholder,
+.retro-textarea::placeholder {
+  color: var(--foreground-tertiary);
+}
+
+/* Admin — same design language */
+
+.admin-page {
+  background-color: var(--admin-bg-tertiary);
+}
+
+.admin-window {
+  border: 1px solid var(--border);
+  background: var(--admin-bg-secondary);
+}
+
+.admin-title-bar {
+  background: var(--admin-title-bg);
+  color: var(--admin-title-text);
+  padding: 6px 10px;
+  font-weight: bold;
+  border-bottom: 2px solid var(--color-primary);
+  letter-spacing: 0.05em;
+}
+
+.admin-button {
+  border: 1px solid var(--admin-border-light);
+  background: transparent;
+  color: var(--admin-text);
+  padding: 4px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.admin-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.admin-button:active {
+  background: var(--admin-bg-secondary);
+}
+
+.admin-inset {
+  border: 1px solid var(--border);
+  background: var(--admin-bg);
+}
+
+.admin-text {
+  color: var(--admin-text);
+}
+
+.admin-text-secondary {
+  color: var(--admin-text-secondary);
+}
+
+.admin-input,
+.admin-textarea {
+  border: 1px solid var(--admin-border-light);
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  padding: 6px 10px;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.admin-input:focus,
+.admin-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.admin-input::placeholder,
+.admin-textarea::placeholder {
+  color: var(--admin-text-secondary);
+}

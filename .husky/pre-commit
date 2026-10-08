@@ -1,0 +1,2 @@
+./scripts/secret-scan.sh
+npm test
