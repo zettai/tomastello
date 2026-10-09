@@ -87,6 +87,10 @@ describe("GET /api/site", () => {
 });
 
 describe("PUT /api/site", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("requires authentication", async () => {
     const request = {
       cookies: { get: jest.fn().mockReturnValue(undefined) },
@@ -158,6 +162,14 @@ describe("PUT /api/site", () => {
     (verifyToken as jest.Mock).mockResolvedValueOnce({
       email: "test@example.com",
     });
+    (readSiteData as jest.Mock).mockResolvedValueOnce({
+      data: { about: { content: "" }, photos: [] },
+      etag: '"site-1"',
+    });
+    (readLinkMetadata as jest.Mock).mockResolvedValueOnce({
+      data: [],
+      etag: '"links-1"',
+    });
     (saveSiteData as jest.Mock).mockResolvedValueOnce(undefined);
     (saveLinkMetadata as jest.Mock).mockResolvedValueOnce(undefined);
 
@@ -191,9 +203,136 @@ describe("PUT /api/site", () => {
     expect(purgePublicPages).toHaveBeenCalled();
   });
 
+  it("should return 409 when If-Match site ETag does not match before write", async () => {
+    (verifyToken as jest.Mock).mockResolvedValueOnce({
+      email: "test@example.com",
+    });
+    (readSiteData as jest.Mock).mockResolvedValueOnce({
+      data: { about: { content: "" }, photos: [] },
+      etag: '"current-site"',
+    });
+    (readLinkMetadata as jest.Mock).mockResolvedValueOnce({
+      data: [],
+      etag: '"links-1"',
+    });
+
+    const headers = new Map<string, string>([
+      ["If-Match", '"stale-site"'],
+      ["X-Links-If-Match", '"links-1"'],
+    ]);
+    const request = {
+      cookies: {
+        get: jest.fn().mockReturnValue({ value: "valid-token" }),
+      },
+      headers: { get: (name: string) => headers.get(name) ?? null },
+      json: jest.fn().mockResolvedValue({
+        about: { content: "Test content" },
+        photos: [],
+        links: [],
+      }),
+    } as unknown as NextRequest;
+
+    const response = await PUT(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data.error).toMatch(/Someone else saved/i);
+    expect(saveSiteData).not.toHaveBeenCalled();
+    expect(saveLinkMetadata).not.toHaveBeenCalled();
+  });
+
+  it("should return 409 when X-Links-If-Match does not match before write", async () => {
+    (verifyToken as jest.Mock).mockResolvedValueOnce({
+      email: "test@example.com",
+    });
+    (readSiteData as jest.Mock).mockResolvedValueOnce({
+      data: { about: { content: "" }, photos: [] },
+      etag: '"site-1"',
+    });
+    (readLinkMetadata as jest.Mock).mockResolvedValueOnce({
+      data: [],
+      etag: '"current-links"',
+    });
+
+    const headers = new Map<string, string>([
+      ["If-Match", '"site-1"'],
+      ["X-Links-If-Match", '"stale-links"'],
+    ]);
+    const request = {
+      cookies: {
+        get: jest.fn().mockReturnValue({ value: "valid-token" }),
+      },
+      headers: { get: (name: string) => headers.get(name) ?? null },
+      json: jest.fn().mockResolvedValue({
+        about: { content: "Test content" },
+        photos: [],
+        links: [],
+      }),
+    } as unknown as NextRequest;
+
+    const response = await PUT(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data.error).toMatch(/Someone else saved/i);
+    expect(saveSiteData).not.toHaveBeenCalled();
+    expect(saveLinkMetadata).not.toHaveBeenCalled();
+  });
+
+  it("should return links-saved-partial message when links conflict after site write", async () => {
+    (verifyToken as jest.Mock).mockResolvedValueOnce({
+      email: "test@example.com",
+    });
+    (readSiteData as jest.Mock).mockResolvedValueOnce({
+      data: { about: { content: "" }, photos: [] },
+      etag: '"site-1"',
+    });
+    (readLinkMetadata as jest.Mock).mockResolvedValueOnce({
+      data: [],
+      etag: '"links-1"',
+    });
+    (saveSiteData as jest.Mock).mockResolvedValueOnce(undefined);
+    (saveLinkMetadata as jest.Mock).mockRejectedValueOnce(
+      new ConflictError("metadata/links.json")
+    );
+
+    const headers = new Map<string, string>([
+      ["If-Match", '"site-1"'],
+      ["X-Links-If-Match", '"links-1"'],
+    ]);
+    const request = {
+      cookies: {
+        get: jest.fn().mockReturnValue({ value: "valid-token" }),
+      },
+      headers: { get: (name: string) => headers.get(name) ?? null },
+      json: jest.fn().mockResolvedValue({
+        about: { content: "Test content" },
+        photos: [],
+        links: [],
+      }),
+    } as unknown as NextRequest;
+
+    const response = await PUT(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data.error).toMatch(
+      /Site settings were saved, but links were not/i
+    );
+    expect(saveSiteData).toHaveBeenCalled();
+  });
+
   it("returns 409 when site save conflicts", async () => {
     (verifyToken as jest.Mock).mockResolvedValueOnce({
       email: "test@example.com",
+    });
+    (readSiteData as jest.Mock).mockResolvedValueOnce({
+      data: { about: { content: "" }, photos: [] },
+      etag: null,
+    });
+    (readLinkMetadata as jest.Mock).mockResolvedValueOnce({
+      data: [],
+      etag: null,
     });
     (saveSiteData as jest.Mock).mockRejectedValueOnce(
       new ConflictError("metadata/site.json")
@@ -220,6 +359,14 @@ describe("PUT /api/site", () => {
   it("handles errors when updating site data", async () => {
     (verifyToken as jest.Mock).mockResolvedValueOnce({
       email: "test@example.com",
+    });
+    (readSiteData as jest.Mock).mockResolvedValueOnce({
+      data: { about: { content: "" }, photos: [] },
+      etag: null,
+    });
+    (readLinkMetadata as jest.Mock).mockResolvedValueOnce({
+      data: [],
+      etag: null,
     });
     (saveSiteData as jest.Mock).mockRejectedValueOnce(
       new Error("Failed to update site data")

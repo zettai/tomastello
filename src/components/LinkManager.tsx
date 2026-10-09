@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LinkMetadata } from "@/types/link";
 import { useAdminToast } from "@/components/AdminToast";
+import { ConfirmDeleteModal } from "@/components/OverlayModal";
 import { readApiError } from "@/lib/readApiError";
 import { loadSiteForSave, putSiteWithEtags } from "@/lib/siteSave";
 
@@ -21,6 +22,8 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
     href: "",
     description: "",
   });
+  const [pendingDelete, setPendingDelete] = useState<LinkMetadata | null>(null);
+  const deleteTriggerRef = useRef<HTMLElement | null>(null);
 
   // Fetch links
   useEffect(() => {
@@ -104,18 +107,18 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
     }
   };
 
-  // Delete link
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this link?")) return;
-
+  const confirmDelete = async () => {
+    const target = pendingDelete;
+    setPendingDelete(null);
+    if (!target) return;
     try {
-      const response = await fetch(`/api/links?id=${id}`, {
+      const response = await fetch(`/api/links?id=${target.id}`, {
         method: "DELETE",
       });
-
       const result = await response.json();
       if (result.success) {
-        setLinks(links.filter((l) => l.id !== id));
+        setLinks((prev) => prev.filter((l) => l.id !== target.id));
+        showSuccess("Link deleted");
       } else {
         showError(result.error || "Failed to delete link");
       }
@@ -331,7 +334,11 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
                   EDIT
                 </button>
                 <button
-                  onClick={() => handleDelete(link.id)}
+                  type="button"
+                  onClick={(e) => {
+                    deleteTriggerRef.current = e.currentTarget;
+                    setPendingDelete(link);
+                  }}
                   className="admin-button px-2 py-1 text-xs"
                 >
                   DEL
@@ -348,6 +355,16 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
           No links yet. Click &quot;ADD LINK&quot; to create one.
         </div>
       )}
+
+      <ConfirmDeleteModal
+        open={pendingDelete !== null}
+        itemName={pendingDelete?.text ?? ""}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          void confirmDelete();
+        }}
+        returnFocusRef={deleteTriggerRef}
+      />
     </div>
   );
 }

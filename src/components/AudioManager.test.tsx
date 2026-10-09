@@ -42,13 +42,19 @@ describe("AudioManager", () => {
 
   beforeEach(() => {
     originalFetch = global.fetch;
-    global.confirm = jest.fn(() => true);
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
     jest.clearAllMocks();
   });
+
+  async function confirmDeleteInModal(): Promise<void> {
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+  }
 
   it("shows loading state initially", () => {
     global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
@@ -202,14 +208,14 @@ describe("AudioManager", () => {
     );
 
     fireEvent.click(screen.getAllByText("DEL")[0]);
+    await confirmDeleteInModal();
 
     await waitFor(() =>
       expect(screen.queryByText("Song A")).not.toBeInTheDocument()
     );
   });
 
-  it("does not delete if confirm returns false", async () => {
-    global.confirm = jest.fn(() => false);
+  it("does not delete if user cancels confirmation modal", async () => {
     global.fetch = jest.fn().mockResolvedValueOnce({
       json: () => Promise.resolve({ success: true, audio: mockAudio }),
     });
@@ -219,7 +225,13 @@ describe("AudioManager", () => {
     );
 
     fireEvent.click(screen.getAllByText("DEL")[0]);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
     expect(screen.getByText("Song A")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("should show error toast when delete fetch fails", async () => {
@@ -236,6 +248,7 @@ describe("AudioManager", () => {
     );
 
     fireEvent.click(screen.getAllByText("DEL")[0]);
+    await confirmDeleteInModal();
 
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent("network")

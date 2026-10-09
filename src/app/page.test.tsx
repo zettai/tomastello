@@ -29,4 +29,13 @@ describe("PhotoGalleryClient", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("button", { name: "Close photo preview" })).not.toBeInTheDocument();
   });
+
+  it("should show gallery caption without filename", async () => {
+    render(<PhotoGalleryClient photos={mockPhotos} />);
+    fireEvent.click(screen.getAllByRole("button")[0]);
+    expect(
+      screen.getByText("Photo 1 of 2 from Tomás Tello's gallery")
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/photo1\.jpg/i)).not.toBeInTheDocument();
+  });
 });

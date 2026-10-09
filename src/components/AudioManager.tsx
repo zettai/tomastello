@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { AudioMetadata } from "@/types/audio";
 import { useAdminToast } from "@/components/AdminToast";
+import { ConfirmDeleteModal } from "@/components/OverlayModal";
 import { readApiError } from "@/lib/readApiError";
 
 interface AudioManagerProps {
@@ -25,6 +26,10 @@ export default function AudioManager({
   const [isReordering, setIsReordering] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<AudioMetadata | null>(
+    null
+  );
+  const deleteTriggerRef = useRef<HTMLElement | null>(null);
 
   const fetchAudio = useCallback(async () => {
     try {
@@ -112,13 +117,16 @@ export default function AudioManager({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this audio file?")) return;
+  const confirmDelete = async () => {
+    const target = pendingDelete;
+    setPendingDelete(null);
+    if (!target) return;
     try {
-      const res = await fetch(`/api/audio/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/audio/${target.id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
-        setAudioList((prev) => prev.filter((a) => a.id !== id));
+        setAudioList((prev) => prev.filter((a) => a.id !== target.id));
+        showSuccess("Audio deleted");
       } else {
         showError(data.error ?? "Delete failed");
       }
@@ -218,7 +226,11 @@ export default function AudioManager({
                 REN
               </button>
               <button
-                onClick={() => handleDelete(audio.id)}
+                type="button"
+                onClick={(e) => {
+                  deleteTriggerRef.current = e.currentTarget;
+                  setPendingDelete(audio);
+                }}
                 className="admin-button px-2 py-1 text-xs"
               >
                 DEL
@@ -227,6 +239,15 @@ export default function AudioManager({
           </div>
         ))}
       </div>
+      <ConfirmDeleteModal
+        open={pendingDelete !== null}
+        itemName={pendingDelete?.title ?? ""}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          void confirmDelete();
+        }}
+        returnFocusRef={deleteTriggerRef}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ImageUpload from "@/components/ImageUpload";
@@ -8,6 +8,7 @@ import AudioUpload from "@/components/AudioUpload";
 import AudioManager from "@/components/AudioManager";
 import { LinkManager } from "@/components/LinkManager";
 import { AdminToastProvider, useAdminToast } from "@/components/AdminToast";
+import { ConfirmDeleteModal } from "@/components/OverlayModal";
 import Image from "next/image";
 import type { SecurityEvent, SystemLock } from "@/lib/securityEvents";
 import { homePageImageCheckboxLabel } from "@/lib/imageSelectionLabel";
@@ -135,6 +136,8 @@ function ImageManager({
   const [loading, setLoading] = useState(true);
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [isReordering, setIsReordering] = useState(false);
+  const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null);
+  const deleteTriggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     fetchImages();
@@ -170,29 +173,41 @@ function ImageManager({
     }
   };
 
-  const handleDelete = async (key: string) => {
-    if (!confirm("Are you sure you want to delete this image?")) return;
+  const requestDelete = (key: string, trigger: HTMLElement) => {
+    deleteTriggerRef.current = trigger;
+    setPendingDeleteKey(key);
+  };
 
+  const confirmDelete = async () => {
+    const key = pendingDeleteKey;
+    setPendingDeleteKey(null);
+    if (!key) return;
     try {
       const response = await fetch(
         `/api/images/delete?key=${encodeURIComponent(key)}`,
-        {
-          method: "DELETE",
-        }
+        { method: "DELETE" }
       );
       const result = await response.json();
       if (result.success) {
-        setImages(images.filter((img) => img.key !== key));
+        setImages((prev) => prev.filter((img) => img.key !== key));
         setSelectedImages((prev) => {
           const next = new Set(prev);
           next.delete(key);
           return next;
         });
+        showSuccess("Image deleted");
+      } else {
+        showError(result.error || "Failed to delete image");
       }
     } catch (error) {
       console.error("Delete error:", error);
+      showError("Failed to delete image");
     }
   };
+
+  const pendingName = pendingDeleteKey
+    ? pendingDeleteKey.split("/").pop() || pendingDeleteKey
+    : "";
 
   const moveImage = useCallback(
     (index: number, direction: "up" | "down") => {
@@ -323,7 +338,8 @@ function ImageManager({
                 ↓
               </button>
               <button
-                onClick={() => handleDelete(image.key)}
+                type="button"
+                onClick={(e) => requestDelete(image.key, e.currentTarget)}
                 className="admin-button px-2 py-1 text-xs"
               >
                 DEL
@@ -332,6 +348,15 @@ function ImageManager({
           </div>
         ))}
       </div>
+      <ConfirmDeleteModal
+        open={pendingDeleteKey !== null}
+        itemName={pendingName}
+        onCancel={() => setPendingDeleteKey(null)}
+        onConfirm={() => {
+          void confirmDelete();
+        }}
+        returnFocusRef={deleteTriggerRef}
+      />
     </div>
   );
 }

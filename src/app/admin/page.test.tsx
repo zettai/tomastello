@@ -228,8 +228,6 @@ describe("AdminPage", () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
     });
 
-    global.confirm = jest.fn(() => true);
-
     render(<AdminPage />);
 
     await waitFor(() => {
@@ -238,6 +236,10 @@ describe("AdminPage", () => {
 
     const deleteButtons = screen.getAllByText("DEL");
     fireEvent.click(deleteButtons[0]);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
@@ -373,13 +375,16 @@ describe("AdminPage", () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ about: { content: mockAboutContent }, photos: [], links: mockLinks }) });
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
     });
-    global.confirm = jest.fn(() => true);
     render(<AdminPage />);
     await waitFor(() => {
       expect(screen.getByText(/MANAGE IMAGES/i)).toBeInTheDocument();
     });
     const deleteButtons = screen.getAllByText("DEL");
     fireEvent.click(deleteButtons[0]);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         "/api/images/delete?key=image1.jpg",

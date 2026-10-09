@@ -16,7 +16,6 @@ afterAll(() => {
 describe("LinkManager", () => {
   let originalFetch: typeof global.fetch;
   let originalAlert: typeof global.alert;
-  let originalConfirm: typeof global.confirm;
 
   const mockLinks = [
     {
@@ -39,17 +38,21 @@ describe("LinkManager", () => {
   beforeEach(() => {
     originalFetch = global.fetch;
     originalAlert = global.alert;
-    originalConfirm = global.confirm;
     global.alert = jest.fn();
-    global.confirm = jest.fn().mockReturnValue(true);
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
     global.alert = originalAlert;
-    global.confirm = originalConfirm;
     jest.clearAllMocks();
   });
+
+  async function confirmDeleteInModal(): Promise<void> {
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+  }
 
   it("renders loading state initially", () => {
     global.fetch = jest.fn().mockResolvedValueOnce({
@@ -354,6 +357,7 @@ describe("LinkManager", () => {
 
     const deleteButtons = screen.getAllByText("DEL");
     fireEvent.click(deleteButtons[0]);
+    await confirmDeleteInModal();
 
     await waitFor(() => {
       expect(screen.queryByText("Link 1")).not.toBeInTheDocument();
@@ -378,6 +382,7 @@ describe("LinkManager", () => {
 
     const deleteButtons = screen.getAllByText("DEL");
     fireEvent.click(deleteButtons[0]);
+    await confirmDeleteInModal();
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent("Delete failed");
@@ -400,6 +405,7 @@ describe("LinkManager", () => {
 
     const deleteButtons = screen.getAllByText("DEL");
     fireEvent.click(deleteButtons[0]);
+    await confirmDeleteInModal();
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent("Failed to delete link");
@@ -407,7 +413,6 @@ describe("LinkManager", () => {
   });
 
   it("cancels delete if user declines confirmation", async () => {
-    global.confirm = jest.fn().mockReturnValue(false);
     global.fetch = jest.fn().mockResolvedValueOnce({
       json: () => Promise.resolve({ success: true, links: mockLinks }),
     });
@@ -420,10 +425,15 @@ describe("LinkManager", () => {
 
     const deleteButtons = screen.getAllByText("DEL");
     fireEvent.click(deleteButtons[0]);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
     });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("moves link up", async () => {

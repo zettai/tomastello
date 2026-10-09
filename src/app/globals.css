@@ -40,6 +40,8 @@
   --admin-border-dark: #1a1a1a;
   --admin-title-bg: #111111;
   --admin-title-text: #efefef;
+  /* Warm error (toasts / destructive chrome) — not the green accent */
+  --admin-error: #e07a3a;
 }
 
 body {
@@ -212,5 +214,67 @@ audio {
 }
 
 .admin-toast-error .admin-title-bar {
-  background: var(--color-primary);
+  background: var(--admin-error);
+  color: #111111;
+}
+
+.overlay-modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+}
+
+.overlay-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  background: var(--background);
+  opacity: 0.92;
+}
+
+.overlay-modal-scroll {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.overlay-modal-panel {
+  pointer-events: auto;
+  position: relative;
+  width: 100%;
+  max-width: 28rem;
+  max-height: min(90vh, 100%);
+  overflow-y: auto;
+  outline: none;
+}
+
+.overlay-modal-panel.retro-window {
+  max-width: 56rem;
+}
+
+.overlay-modal-body {
+  padding: 1rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

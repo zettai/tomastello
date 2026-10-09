@@ -5,6 +5,7 @@ import { readSiteData, saveSiteData } from "@/lib/site";
 import { verifyToken } from "@/lib/auth";
 import { toPublicLink } from "@/lib/publicView";
 import { readLinkMetadata, saveLinkMetadata } from "@/lib/links";
+import { ConflictError } from "@/lib/jsonStore";
 import { conflictResponse } from "@/lib/storeErrors";
 
 // Helper function to validate about content
@@ -51,6 +52,14 @@ function validateLinks(links: unknown): string | null {
     }
   }
   return null;
+}
+
+function etagMismatch(
+  expected: string | null,
+  actual: string | null
+): boolean {
+  if (expected === null) return false;
+  return expected !== actual;
 }
 
 // Link createdBy is an admin email: only admins see it (the admin page PUTs links back)
@@ -119,21 +128,55 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: linksError }, { status: 400 });
     }
 
-    // ETags from the GET that loaded the form (missing → write against current version)
     const siteIfMatch = request.headers.get("If-Match");
     const linksIfMatch = request.headers.get("X-Links-If-Match");
-
     const { links, ...siteData } = data;
+
+    // Check both ETags before writing anything (avoids half-saves)
+    const currentSite = await readSiteData();
+    const currentLinks = await readLinkMetadata();
+    if (etagMismatch(siteIfMatch, currentSite.etag)) {
+      return NextResponse.json(
+        {
+          error:
+            "Someone else saved at the same moment. Reload and try again.",
+        },
+        { status: 409 }
+      );
+    }
+    if (links !== undefined && etagMismatch(linksIfMatch, currentLinks.etag)) {
+      return NextResponse.json(
+        {
+          error:
+            "Someone else saved at the same moment. Reload and try again.",
+        },
+        { status: 409 }
+      );
+    }
+
     await saveSiteData(
       siteData,
       siteIfMatch === null ? undefined : siteIfMatch
     );
 
-    if (links) {
-      await saveLinkMetadata(
-        links,
-        linksIfMatch === null ? undefined : linksIfMatch
-      );
+    if (links !== undefined) {
+      try {
+        await saveLinkMetadata(
+          links,
+          linksIfMatch === null ? undefined : linksIfMatch
+        );
+      } catch (error) {
+        if (error instanceof ConflictError) {
+          return NextResponse.json(
+            {
+              error:
+                "Site settings were saved, but links were not: someone else saved at the same moment. Reload and try again.",
+            },
+            { status: 409 }
+          );
+        }
+        throw error;
+      }
     }
 
     revalidatePath("/");
