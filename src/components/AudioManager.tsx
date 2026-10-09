@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { AudioMetadata } from "@/types/audio";
 import { useAdminToast } from "@/components/AdminToast";
+import { useAdminSave } from "@/components/AdminSave";
 import { ConfirmDeleteModal } from "@/components/OverlayModal";
-import { readApiError } from "@/lib/readApiError";
 
 interface AudioManagerProps {
   readonly refreshTrigger: number;
@@ -21,6 +21,7 @@ export default function AudioManager({
   refreshTrigger,
 }: AudioManagerProps) {
   const { showSuccess, showError } = useAdminToast();
+  const { saveAudioOrder } = useAdminSave();
   const [audioList, setAudioList] = useState<AudioMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [isReordering, setIsReordering] = useState(false);
@@ -49,47 +50,45 @@ export default function AudioManager({
     fetchAudio();
   }, [fetchAudio, refreshTrigger]);
 
-  const moveAudio = useCallback(
-    (index: number, direction: "up" | "down") => {
-      if (isReordering) return;
-      setIsReordering(true);
+  const persistOrder = (
+    next: AudioMetadata[],
+    previous: AudioMetadata[]
+  ) => {
+    const ids = next.map((a) => a.id);
+    const previousIds = previous.map((a) => a.id);
+    saveAudioOrder({
+      ids,
+      successMessage: "Audio order saved",
+      onSuccess: () => {
+        void fetchAudio();
+      },
+      undo: () => {
+        setAudioList(previous);
+        saveAudioOrder({
+          ids: previousIds,
+          successMessage: "Audio order restored",
+          onSuccess: () => {
+            void fetchAudio();
+          },
+        });
+      },
+    });
+  };
 
-      setAudioList((prev) => {
-        const next = [...prev];
-        const newIndex = direction === "up" ? index - 1 : index + 1;
-        if (newIndex < 0 || newIndex >= next.length) {
-          setIsReordering(false);
-          return prev;
-        }
-        [next[index], next[newIndex]] = [next[newIndex], next[index]];
-        return next;
-      });
+  const moveAudio = (index: number, direction: "up" | "down") => {
+    if (isReordering) return;
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= audioList.length) return;
 
-      requestAnimationFrame(() => {
-        setIsReordering(false);
-      });
-    },
-    [isReordering]
-  );
-
-  const handleSaveOrder = async () => {
-    try {
-      const ids = audioList.map((a) => a.id);
-      const res = await fetch("/api/audio/reorder", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-      if (!res.ok) {
-        showError(await readApiError(res, "Failed to save order"));
-        return;
-      }
-      await fetchAudio();
-      showSuccess("Audio order saved");
-    } catch (err) {
-      console.error("Reorder error:", err);
-      showError(err instanceof Error ? err.message : "Failed to save order");
-    }
+    setIsReordering(true);
+    const previous = audioList;
+    const next = [...audioList];
+    [next[index], next[newIndex]] = [next[newIndex], next[index]];
+    setAudioList(next);
+    persistOrder(next, previous);
+    requestAnimationFrame(() => {
+      setIsReordering(false);
+    });
   };
 
   const handleRename = async (id: string) => {
@@ -152,9 +151,6 @@ export default function AudioManager({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold admin-text">[ AUDIO FILES ]</h2>
-        <button onClick={handleSaveOrder} className="admin-button">
-          [ SAVE ORDER ]
-        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-2">

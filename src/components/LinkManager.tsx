@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { LinkMetadata } from "@/types/link";
 import { useAdminToast } from "@/components/AdminToast";
+import { useAdminSave } from "@/components/AdminSave";
 import { ConfirmDeleteModal } from "@/components/OverlayModal";
-import { readApiError } from "@/lib/readApiError";
-import { loadSiteForSave, putSiteWithEtags } from "@/lib/siteSave";
 
 interface LinkManagerProps {
   readonly refreshTrigger: number;
@@ -13,6 +12,7 @@ interface LinkManagerProps {
 
 export function LinkManager({ refreshTrigger }: LinkManagerProps) {
   const { showSuccess, showError } = useAdminToast();
+  const { saveSite } = useAdminSave();
   const [links, setLinks] = useState<LinkMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingLink, setEditingLink] = useState<LinkMetadata | null>(null);
@@ -25,7 +25,6 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
   const [pendingDelete, setPendingDelete] = useState<LinkMetadata | null>(null);
   const deleteTriggerRef = useRef<HTMLElement | null>(null);
 
-  // Fetch links
   useEffect(() => {
     const fetchLinks = async () => {
       try {
@@ -43,7 +42,6 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
     fetchLinks();
   }, [refreshTrigger]);
 
-  // Create link
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -74,7 +72,6 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
     }
   };
 
-  // Update link
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -128,37 +125,37 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
     }
   };
 
-  // Reorder links
+  const persistOrder = (
+    nextLinks: LinkMetadata[],
+    previousLinks: LinkMetadata[]
+  ) => {
+    saveSite({
+      mutate: (data) => ({ ...data, links: nextLinks }),
+      successMessage: "Link order saved",
+      undo: () => {
+        setLinks(previousLinks);
+        saveSite({
+          mutate: (data) => ({ ...data, links: previousLinks }),
+          successMessage: "Link order restored",
+        });
+      },
+    });
+  };
+
   const moveLink = (index: number, direction: "up" | "down") => {
-    const newLinks = [...links];
     const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= links.length) return;
 
-    if (newIndex < 0 || newIndex >= newLinks.length) return;
-
+    const previousLinks = links;
+    const newLinks = [...links];
     [newLinks[index], newLinks[newIndex]] = [
       newLinks[newIndex],
       newLinks[index],
     ];
     setLinks(newLinks);
+    persistOrder(newLinks, previousLinks);
   };
 
-  // Save order
-  const handleSaveOrder = async () => {
-    try {
-      const { data, etags } = await loadSiteForSave();
-      const response = await putSiteWithEtags({ ...data, links }, etags);
-      if (!response.ok) {
-        showError(await readApiError(response, "Failed to save order"));
-        return;
-      }
-      showSuccess("Link order saved");
-    } catch (error) {
-      console.error("Save order error:", error);
-      showError("Failed to save order");
-    }
-  };
-
-  // Start editing
   const startEditing = (link: LinkMetadata) => {
     setEditingLink(link);
     setFormData({
@@ -168,7 +165,6 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
     });
   };
 
-  // Cancel editing/creating
   const handleCancel = () => {
     setEditingLink(null);
     setIsCreating(false);
@@ -181,7 +177,6 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
 
   return (
     <div className="space-y-4">
-      {/* Add Link Button */}
       {!isCreating && !editingLink && (
         <button
           onClick={() => setIsCreating(true)}
@@ -191,7 +186,6 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
         </button>
       )}
 
-      {/* Create/Edit Form */}
       {(isCreating || editingLink) && (
         <div className="admin-window p-4">
           <h3 className="admin-text font-bold mb-3">
@@ -273,18 +267,9 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
         </div>
       )}
 
-      {/* Links List */}
       {links.length > 0 && (
         <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <h3 className="admin-text font-bold">Links ({links.length})</h3>
-            <button
-              onClick={handleSaveOrder}
-              className="admin-button px-3 py-1 text-sm"
-            >
-              SAVE ORDER
-            </button>
-          </div>
+          <h3 className="admin-text font-bold">Links ({links.length})</h3>
 
           {links.map((link, index) => (
             <div
@@ -349,7 +334,6 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
         </div>
       )}
 
-      {/* Empty State */}
       {links.length === 0 && !isCreating && (
         <div className="admin-text text-center py-8">
           No links yet. Click &quot;ADD LINK&quot; to create one.

@@ -168,9 +168,7 @@ describe("AdminPage", () => {
       "Enter about content (max 2000 characters)"
     );
     fireEvent.change(textarea, { target: { value: mockNewContent } });
-
-    const saveButton = screen.getByText(/^\[ SAVE \]$/i);
-    fireEvent.click(saveButton);
+    fireEvent.blur(textarea);
 
     await waitFor(() => {
       const putCall = (global.fetch as jest.Mock).mock.calls.find(
@@ -205,7 +203,6 @@ describe("AdminPage", () => {
     render(<AdminPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
       expect(screen.getByText("image1.jpg")).toBeInTheDocument();
       expect(screen.getByText("image2.jpg")).toBeInTheDocument();
     });
@@ -231,7 +228,7 @@ describe("AdminPage", () => {
     render(<AdminPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
+      expect(screen.getByText("image1.jpg")).toBeInTheDocument();
     });
 
     const deleteButtons = screen.getAllByText("DEL");
@@ -288,24 +285,25 @@ describe("AdminPage", () => {
   });
 
   it("handles fetch error in handleAboutUpdate", async () => {
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ user: mockUser }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ about: { content: mockAboutContent }, links: mockLinks }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true, images: mockImages }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ photos: [] }),
-      })
-      .mockRejectedValueOnce(new Error("fetch error"));
+    (global.fetch as jest.Mock).mockImplementation((url: string, opts?: RequestInit) => {
+      if (url === "/api/auth/profile")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ user: mockUser }) });
+      if (url === "/api/admin/security")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ lock: { locked: false }, events: [] }) });
+      if (url === "/api/images/list")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, images: mockImages }) });
+      if (url === "/api/audio/list")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, audio: [] }) });
+      if (url === "/api/site" && opts?.method === "PUT")
+        return Promise.reject(new Error("fetch error"));
+      if (url === "/api/site")
+        return Promise.resolve({
+          ok: true,
+          headers: { get: () => null },
+          json: () => Promise.resolve({ about: { content: mockAboutContent }, photos: [], links: mockLinks }),
+        });
+      return Promise.resolve({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({}) });
+    });
     render(<AdminPage />);
     await waitFor(() => {
       expect(screen.getByText(/UPDATE ABOUT TEXT/i)).toBeInTheDocument();
@@ -314,10 +312,9 @@ describe("AdminPage", () => {
       "Enter about content (max 2000 characters)"
     );
     fireEvent.change(textarea, { target: { value: "New content" } });
-    const saveButton = screen.getByText(/^\[ SAVE \]$/i);
-    fireEvent.click(saveButton);
+    fireEvent.blur(textarea);
     await waitFor(() => {
-      expect(screen.getByText(/UPDATE ABOUT TEXT/i)).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(/fetch error/i);
     });
   });
 
@@ -334,7 +331,7 @@ describe("AdminPage", () => {
       .mockRejectedValueOnce(new Error("fetch error"));
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
+      expect(screen.getByText(/NO IMAGES|LOADING IMAGES/i)).toBeInTheDocument();
     });
   });
 
@@ -355,7 +352,7 @@ describe("AdminPage", () => {
       .mockRejectedValueOnce(new Error("fetch error"));
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
+      expect(screen.getByText("image1.jpg")).toBeInTheDocument();
     });
   });
 
@@ -377,7 +374,7 @@ describe("AdminPage", () => {
     });
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
+      expect(screen.getByText("image1.jpg")).toBeInTheDocument();
     });
     const deleteButtons = screen.getAllByText("DEL");
     fireEvent.click(deleteButtons[0]);
@@ -420,62 +417,55 @@ describe("AdminPage", () => {
     });
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
+      expect(screen.getByText("image1.jpg")).toBeInTheDocument();
     });
     const checkboxes = screen.queryAllByRole("checkbox");
     if (checkboxes[0]) {
       fireEvent.click(checkboxes[0]);
     }
-    fireEvent.click(screen.getByText(/SAVE SELECTION/i));
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/fetch error/i);
     });
   });
 
   it("handles fetch error in moveImage", async () => {
-    // Ensure at least two images for move button
     const twoImages = [
-      { key: "image1.jpg", url: "/images/image1.jpg" },
-      { key: "image2.jpg", url: "/images/image2.jpg" },
+      { key: "image1.jpg", url: "/images/image1.jpg", size: 1, lastModified: "2024-01-01" },
+      { key: "image2.jpg", url: "/images/image2.jpg", size: 1, lastModified: "2024-01-02" },
     ];
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ user: mockUser }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ about: { content: mockAboutContent }, links: mockLinks }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true, images: twoImages }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ photos: [] }),
-      })
-      .mockRejectedValueOnce(new Error("fetch error"));
+    let siteGets = 0;
+    (global.fetch as jest.Mock).mockImplementation((url: string, opts?: RequestInit) => {
+      if (url === "/api/auth/profile")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ user: mockUser }) });
+      if (url === "/api/admin/security")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ lock: { locked: false }, events: [] }) });
+      if (url === "/api/images/list")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, images: twoImages }) });
+      if (url === "/api/audio/list")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, audio: [] }) });
+      if (url === "/api/site" && opts?.method === "PUT")
+        return Promise.reject(new Error("fetch error"));
+      if (url === "/api/site") {
+        siteGets += 1;
+        if (siteGets <= 2) {
+          return Promise.resolve({
+            ok: true,
+            headers: { get: () => null },
+            json: () => Promise.resolve({ about: { content: mockAboutContent }, photos: [], links: mockLinks }),
+          });
+        }
+        return Promise.reject(new Error("fetch error"));
+      }
+      return Promise.resolve({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({}) });
+    });
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
+      expect(screen.getByText("image1.jpg")).toBeInTheDocument();
     });
-    // Find the first move button (should exist with two images)
-    const moveButton = screen
-      .getAllByRole("button")
-      .find((btn) => btn.textContent?.toLowerCase().includes("move"));
-    if (moveButton) {
-      fireEvent.click(moveButton);
-      await waitFor(() => {
-        expect(
-          (global.fetch as jest.Mock).mock.calls.some(
-            ([url]) => url === "/api/images/move"
-          )
-        ).toBe(true);
-      });
-    } else {
-      expect(true).toBe(true);
-    }
+    fireEvent.click(screen.getAllByText("↓")[0]);
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(/fetch error/i);
+    });
   });
 
   it("handles fetch error in handleImageUpload", async () => {
@@ -496,7 +486,7 @@ describe("AdminPage", () => {
     });
     const { container } = render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
+      expect(screen.getByText("image1.jpg")).toBeInTheDocument();
     });
     const fileInput = container.querySelector("input[data-image]") as HTMLInputElement;
     const file = new File(["test"], "test.jpg", { type: "image/jpeg" });
@@ -607,16 +597,16 @@ describe("AdminPage", () => {
     fireEvent.click(screen.getAllByText("↑")[1]);
   });
 
-  it("saves image selection successfully", async () => {
-    mockByUrl(mockImages, [{ id: "image1.jpg" }]);
+  it("should save image selection when checkbox changes", async () => {
+    mockByUrl(mockImages, []);
 
     render(<AdminPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
+      expect(screen.getByText("image1.jpg")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/SAVE SELECTION/i));
+    fireEvent.click(screen.getAllByRole("checkbox")[0]);
 
     await waitFor(() => {
       const putCall = (global.fetch as jest.Mock).mock.calls.find(
@@ -624,11 +614,11 @@ describe("AdminPage", () => {
       );
       expect(putCall).toBeDefined();
       expect(putCall[1].headers["If-Match"]).toBe('"site-etag"');
-      expect(screen.getByRole("status")).toHaveTextContent(/Photo selection saved/i);
+      expect(screen.getByRole("status")).toHaveTextContent(/Photo shown on site/i);
     });
   });
 
-  it("shows error when handleSave GET fetch fails", async () => {
+  it("shows error when photo save-on-change GET fetch fails", async () => {
     let siteCallCount = 0;
     (global.fetch as jest.Mock).mockImplementation((url: string, opts?: RequestInit) => {
       if (url === "/api/auth/profile")
@@ -660,17 +650,17 @@ describe("AdminPage", () => {
     render(<AdminPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
+      expect(screen.getByText("image1.jpg")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/SAVE SELECTION/i));
+    fireEvent.click(screen.getAllByRole("checkbox")[0]);
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/Failed to fetch site data/i);
     });
   });
 
-  it("shows error when handleAboutUpdate PUT response is not ok", async () => {
+  it("shows error when about autosave PUT response is not ok", async () => {
     (global.fetch as jest.Mock).mockImplementation((url: string, opts?: RequestInit) => {
       if (url === "/api/auth/profile")
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ user: mockUser }) });
@@ -703,7 +693,11 @@ describe("AdminPage", () => {
       expect(screen.getByText(/UPDATE ABOUT TEXT/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/^\[ SAVE \]$/i));
+    const textarea = screen.getByPlaceholderText(
+      "Enter about content (max 2000 characters)"
+    );
+    fireEvent.change(textarea, { target: { value: "Conflict content" } });
+    fireEvent.blur(textarea);
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/Someone else saved/i);

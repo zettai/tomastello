@@ -1,4 +1,4 @@
-import { render, screen, act, waitFor } from "@testing-library/react";
+import { render, screen, act, waitFor, fireEvent } from "@testing-library/react";
 import { AdminToastProvider, useAdminToast } from "./AdminToast";
 
 function Trigger() {
@@ -7,6 +7,16 @@ function Trigger() {
     <>
       <button type="button" onClick={() => showSuccess("Saved OK")}>
         ok
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          showSuccess("Hidden", {
+            onUndo: () => showSuccess("Restored"),
+          })
+        }
+      >
+        with-undo
       </button>
       <button type="button" onClick={() => showError("Boom")}>
         err
@@ -25,7 +35,6 @@ describe("AdminToast", () => {
     act(() => {
       screen.getByText("ok").click();
     });
-    // Portal mounts after useEffect; wait for the portaled toast.
     await waitFor(() => {
       expect(screen.getByRole("status")).toHaveTextContent("Saved OK");
     });
@@ -42,6 +51,24 @@ describe("AdminToast", () => {
     });
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent("Boom");
+    });
+  });
+
+  it("should run onUndo when Undo is clicked", async () => {
+    render(
+      <AdminToastProvider>
+        <Trigger />
+      </AdminToastProvider>
+    );
+    act(() => {
+      screen.getByText("with-undo").click();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent("Restored");
     });
   });
 });

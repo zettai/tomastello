@@ -436,10 +436,39 @@ describe("LinkManager", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("moves link up", async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      json: () => Promise.resolve({ success: true, links: mockLinks }),
+  const mockLinksFetch = (sitePut?: () => Promise<unknown>) => {
+    global.fetch = jest.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (url === "/api/links") {
+        return Promise.resolve({
+          json: () => Promise.resolve({ success: true, links: mockLinks }),
+        });
+      }
+      if (url === "/api/site" && opts?.method === "PUT") {
+        return sitePut
+          ? sitePut()
+          : Promise.resolve({
+              ok: true,
+              headers: { get: () => null },
+              json: () => Promise.resolve({ success: true }),
+            });
+      }
+      if (url === "/api/site") {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: () => null },
+          json: () => Promise.resolve({ about: {}, photos: [], links: mockLinks }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        headers: { get: () => null },
+        json: () => Promise.resolve({}),
+      });
     });
+  };
+
+  it("moves link up", async () => {
+    mockLinksFetch();
 
     renderWithToast(<LinkManager refreshTrigger={0} />);
 
@@ -457,9 +486,7 @@ describe("LinkManager", () => {
   });
 
   it("moves link down", async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      json: () => Promise.resolve({ success: true, links: mockLinks }),
-    });
+    mockLinksFetch();
 
     renderWithToast(<LinkManager refreshTrigger={0} />);
 
@@ -476,88 +503,58 @@ describe("LinkManager", () => {
     expect(linkTexts[1]).toBe("Link 1");
   });
 
-  it("saves link order successfully", async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: true, links: mockLinks }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: { get: () => null },
-        json: () => Promise.resolve({ about: {}, photos: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      });
+  it("should save link order when reordered", async () => {
+    mockLinksFetch();
 
     renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
-      expect(screen.getByText("SAVE ORDER")).toBeInTheDocument();
+      expect(screen.getByText("Link 1")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText("SAVE ORDER"));
+    fireEvent.click(screen.getAllByTitle("Move down")[0]);
 
     await waitFor(() => {
       expect(screen.getByRole("status")).toHaveTextContent(/Link order saved/i);
     });
   });
 
-  it("handles save order error from API", async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: true, links: mockLinks }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: { get: () => null },
-        json: () => Promise.resolve({ about: {}, photos: [] }),
-      })
-      .mockResolvedValueOnce({
+  it("should show error toast when link order save fails", async () => {
+    mockLinksFetch(() =>
+      Promise.resolve({
         ok: false,
         status: 409,
+        headers: { get: () => null },
         json: () => Promise.resolve({ error: "Save failed" }),
-      });
+      })
+    );
 
     renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
-      expect(screen.getByText("SAVE ORDER")).toBeInTheDocument();
+      expect(screen.getByText("Link 1")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText("SAVE ORDER"));
+    fireEvent.click(screen.getAllByTitle("Move down")[0]);
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent("Save failed");
     });
   });
 
-  it("handles save order network error", async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: true, links: mockLinks }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: { get: () => null },
-        json: () => Promise.resolve({ about: {}, photos: [] }),
-      })
-      .mockRejectedValueOnce(new Error("Network error"));
+  it("should show error toast when link order save network fails", async () => {
+    mockLinksFetch(() => Promise.reject(new Error("Network error")));
 
     renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
-      expect(screen.getByText("SAVE ORDER")).toBeInTheDocument();
+      expect(screen.getByText("Link 1")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText("SAVE ORDER"));
+    fireEvent.click(screen.getAllByTitle("Move down")[0]);
 
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent("Failed to save order");
+      expect(screen.getByRole("alert")).toHaveTextContent("Network error");
     });
   });
 

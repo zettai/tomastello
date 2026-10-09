@@ -8,12 +8,11 @@ import AudioUpload from "@/components/AudioUpload";
 import AudioManager from "@/components/AudioManager";
 import { LinkManager } from "@/components/LinkManager";
 import { AdminToastProvider, useAdminToast } from "@/components/AdminToast";
+import { AdminSaveProvider, useAdminSave } from "@/components/AdminSave";
 import { ConfirmDeleteModal } from "@/components/OverlayModal";
 import Image from "next/image";
 import type { SecurityEvent, SystemLock } from "@/lib/securityEvents";
 import { homePageImageCheckboxLabel } from "@/lib/imageSelectionLabel";
-import { readApiError } from "@/lib/readApiError";
-import { loadSiteForSave, putSiteWithEtags } from "@/lib/siteSave";
 
 interface User {
   id: string;
@@ -28,6 +27,8 @@ interface ImageMetadata {
   size: number;
   lastModified: string;
 }
+
+const ABOUT_DEBOUNCE_MS = 1500;
 
 function SecurityPanel() {
   const [lock, setLock] = useState<SystemLock | null>(null);
@@ -126,12 +127,22 @@ function SecurityPanel() {
   );
 }
 
+function photosFromSelection(
+  images: ImageMetadata[],
+  selected: Set<string>
+): { id: string; url: string }[] {
+  return images
+    .filter((img) => selected.has(img.key))
+    .map((img) => ({ id: img.key, url: img.url }));
+}
+
 function ImageManager({
   refreshTrigger,
 }: Readonly<{
   refreshTrigger: number;
 }>) {
   const { showSuccess, showError } = useAdminToast();
+  const { saveSite } = useAdminSave();
   const [images, setImages] = useState<ImageMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -173,6 +184,29 @@ function ImageManager({
     }
   };
 
+  const persistSelection = (
+    nextSelected: Set<string>,
+    nextImages: ImageMetadata[],
+    previousSelected: Set<string>,
+    previousImages: ImageMetadata[],
+    successMessage: string
+  ) => {
+    const photos = photosFromSelection(nextImages, nextSelected);
+    const previousPhotos = photosFromSelection(previousImages, previousSelected);
+    saveSite({
+      mutate: (data) => ({ ...data, photos }),
+      successMessage,
+      undo: () => {
+        setSelectedImages(new Set(previousSelected));
+        setImages(previousImages);
+        saveSite({
+          mutate: (data) => ({ ...data, photos: previousPhotos }),
+          successMessage: "Photos restored",
+        });
+      },
+    });
+  };
+
   const requestDelete = (key: string, trigger: HTMLElement) => {
     deleteTriggerRef.current = trigger;
     setPendingDeleteKey(key);
@@ -209,57 +243,49 @@ function ImageManager({
     ? pendingDeleteKey.split("/").pop() || pendingDeleteKey
     : "";
 
-  const moveImage = useCallback(
-    (index: number, direction: "up" | "down") => {
-      if (isReordering) return;
-      setIsReordering(true);
+  const moveImage = (index: number, direction: "up" | "down") => {
+    if (isReordering) return;
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= images.length) return;
 
-      setImages((prevImages) => {
-        const newImages = [...prevImages];
-        const newIndex = direction === "up" ? index - 1 : index + 1;
-        if (newIndex < 0 || newIndex >= newImages.length) {
-          setIsReordering(false);
-          return prevImages;
-        }
+    setIsReordering(true);
+    const previousImages = images;
+    const previousSelected = new Set(selectedImages);
+    const newImages = [...images];
+    [newImages[index], newImages[newIndex]] = [
+      newImages[newIndex],
+      newImages[index],
+    ];
+    setImages(newImages);
+    persistSelection(
+      selectedImages,
+      newImages,
+      previousSelected,
+      previousImages,
+      "Photo order saved"
+    );
+    requestAnimationFrame(() => {
+      setIsReordering(false);
+    });
+  };
 
-        [newImages[index], newImages[newIndex]] = [
-          newImages[newIndex],
-          newImages[index],
-        ];
-        return newImages;
-      });
-
-      requestAnimationFrame(() => {
-        setIsReordering(false);
-      });
-    },
-    [isReordering]
-  );
-
-  const handleSave = async () => {
-    const selectedImagesArray = images
-      .filter((img) => selectedImages.has(img.key))
-      .map((img) => ({ id: img.key, url: img.url }));
-
-    try {
-      const { data, etags } = await loadSiteForSave();
-      const response = await putSiteWithEtags(
-        { ...data, photos: selectedImagesArray },
-        etags
-      );
-      if (!response.ok) {
-        showError(await readApiError(response, "Failed to update site data"));
-        return;
-      }
-      showSuccess("Photo selection saved");
-    } catch (error) {
-      console.error("Failed to save image selection:", error);
-      showError(
-        error instanceof Error
-          ? error.message
-          : "Failed to save image selection"
-      );
+  const toggleSelection = (key: string, checked: boolean) => {
+    const previousSelected = new Set(selectedImages);
+    const previousImages = images;
+    const next = new Set(selectedImages);
+    if (checked) {
+      next.add(key);
+    } else {
+      next.delete(key);
     }
+    setSelectedImages(next);
+    persistSelection(
+      next,
+      images,
+      previousSelected,
+      previousImages,
+      checked ? "Photo shown on site" : "Photo hidden"
+    );
   };
 
   if (loading) {
@@ -272,14 +298,6 @@ function ImageManager({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <button
-          onClick={handleSave}
-          className="admin-button"
-        >
-          [ SAVE SELECTION ]
-        </button>
-      </div>
       {images.length === 0 && (
         <div className="p-4 text-center admin-text">[ NO IMAGES ]</div>
       )}
@@ -294,13 +312,7 @@ function ImageManager({
               aria-label={homePageImageCheckboxLabel(image.key)}
               checked={selectedImages.has(image.key)}
               onChange={(e) => {
-                const next = new Set(selectedImages);
-                if (e.target.checked) {
-                  next.add(image.key);
-                } else {
-                  next.delete(image.key);
-                }
-                setSelectedImages(next);
+                toggleSelection(image.key, e.target.checked);
               }}
               className="h-4 w-4"
             />
@@ -362,11 +374,14 @@ function ImageManager({
 }
 
 function AdminPageInner() {
-  const { showSuccess, showError } = useAdminToast();
+  const { saveSite } = useAdminSave();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [aboutContent, setAboutContent] = useState("");
+  const aboutBaselineRef = useRef("");
+  const aboutLoadedRef = useRef(false);
+  const aboutTimerRef = useRef<number | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -395,15 +410,61 @@ function AdminPageInner() {
         const response = await fetch("/api/site");
         if (response.ok) {
           const data = await response.json();
-          setAboutContent(data.about?.content || "");
+          const content = data.about?.content || "";
+          setAboutContent(content);
+          aboutBaselineRef.current = content;
+          aboutLoadedRef.current = true;
         }
       } catch {
-        // Ignore error
+        aboutLoadedRef.current = true;
       }
     };
 
     fetchAboutContent();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (aboutTimerRef.current !== null) {
+        window.clearTimeout(aboutTimerRef.current);
+      }
+    };
+  }, []);
+
+  const queueAboutSave = useCallback(
+    (content: string) => {
+      if (content === aboutBaselineRef.current) return;
+      saveSite({
+        mutate: (data) => ({ ...data, about: { content } }),
+        successMessage: "About text saved",
+        onSuccess: () => {
+          aboutBaselineRef.current = content;
+        },
+      });
+    },
+    [saveSite]
+  );
+
+  const flushAboutSave = useCallback(() => {
+    if (aboutTimerRef.current !== null) {
+      window.clearTimeout(aboutTimerRef.current);
+      aboutTimerRef.current = null;
+    }
+    if (!aboutLoadedRef.current) return;
+    queueAboutSave(aboutContent);
+  }, [aboutContent, queueAboutSave]);
+
+  const handleAboutChange = (value: string) => {
+    setAboutContent(value);
+    if (!aboutLoadedRef.current) return;
+    if (aboutTimerRef.current !== null) {
+      window.clearTimeout(aboutTimerRef.current);
+    }
+    aboutTimerRef.current = window.setTimeout(() => {
+      aboutTimerRef.current = null;
+      queueAboutSave(value);
+    }, ABOUT_DEBOUNCE_MS);
+  };
 
   const handleLogout = async () => {
     try {
@@ -411,28 +472,6 @@ function AdminPageInner() {
       router.push("/login");
     } catch {
       // Ignore error
-    }
-  };
-
-  const handleAboutUpdate = async (content: string) => {
-    try {
-      const { data, etags } = await loadSiteForSave();
-      const response = await putSiteWithEtags(
-        { ...data, about: { content } },
-        etags
-      );
-      if (!response.ok) {
-        showError(await readApiError(response, "Failed to update about content"));
-        return;
-      }
-      showSuccess("About text saved");
-    } catch (error) {
-      console.error("Failed to update about content:", error);
-      showError(
-        error instanceof Error
-          ? error.message
-          : "Failed to update about content"
-      );
     }
   };
 
@@ -456,7 +495,6 @@ function AdminPageInner() {
   return (
     <div className="min-h-screen p-4 sm:p-8 admin-page">
       <main className="max-w-6xl mx-auto space-y-4">
-        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <Link href="/" className="admin-button text-sm">
             &lt;&lt; BACK TO SITE
@@ -471,7 +509,6 @@ function AdminPageInner() {
           </div>
         </div>
 
-        {/* User Info Window */}
         <div className="admin-window">
           <div className="admin-title-bar">[ ADMIN.EXE ]</div>
           <div className="p-4 text-center">
@@ -481,7 +518,6 @@ function AdminPageInner() {
           </div>
         </div>
 
-        {/* Security Panel */}
         <div className="admin-window">
           <div className="admin-title-bar">[ SECURITY ]</div>
           <div className="p-4 m-2">
@@ -489,13 +525,13 @@ function AdminPageInner() {
           </div>
         </div>
 
-        {/* About Section */}
         <div className="admin-window">
           <div className="admin-title-bar">[ UPDATE ABOUT TEXT ]</div>
           <div className="p-4 m-2 space-y-3">
             <textarea
               value={aboutContent}
-              onChange={(e) => setAboutContent(e.target.value)}
+              onChange={(e) => handleAboutChange(e.target.value)}
+              onBlur={flushAboutSave}
               className="admin-textarea w-full"
               rows={10}
               maxLength={2000}
@@ -505,17 +541,10 @@ function AdminPageInner() {
               <p className="text-sm admin-text-secondary">
                 {aboutContent.length}/2000 characters
               </p>
-              <button
-                onClick={() => handleAboutUpdate(aboutContent)}
-                className="admin-button"
-              >
-                [ SAVE ]
-              </button>
             </div>
           </div>
         </div>
 
-        {/* Link Manager */}
         <div className="admin-window">
           <div className="admin-title-bar">[ MANAGE LINKS ]</div>
           <div className="p-4 m-2">
@@ -523,7 +552,6 @@ function AdminPageInner() {
           </div>
         </div>
 
-        {/* Upload Section */}
         <div className="admin-window">
           <div className="admin-title-bar">[ UPLOAD IMAGES ]</div>
           <div className="p-4 m-2">
@@ -531,7 +559,6 @@ function AdminPageInner() {
           </div>
         </div>
 
-        {/* Image Manager */}
         <div className="admin-window">
           <div className="admin-title-bar">[ IMAGE MANAGER ]</div>
           <div className="p-4 m-2">
@@ -539,7 +566,6 @@ function AdminPageInner() {
           </div>
         </div>
 
-        {/* Upload Audio Section */}
         <div className="admin-window">
           <div className="admin-title-bar">[ UPLOAD AUDIO ]</div>
           <div className="p-4 m-2">
@@ -547,7 +573,6 @@ function AdminPageInner() {
           </div>
         </div>
 
-        {/* Audio Manager */}
         <div className="admin-window">
           <div className="admin-title-bar">[ AUDIO MANAGER ]</div>
           <div className="p-4 m-2">
@@ -562,7 +587,9 @@ function AdminPageInner() {
 export default function AdminPage() {
   return (
     <AdminToastProvider>
-      <AdminPageInner />
+      <AdminSaveProvider>
+        <AdminPageInner />
+      </AdminSaveProvider>
     </AdminToastProvider>
   );
 }

@@ -84,10 +84,27 @@ describe("AudioManager", () => {
     });
   });
 
-  it("moves audio up and down", async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      json: () => Promise.resolve({ success: true, audio: mockAudio }),
+  const mockAudioFetch = (reorder?: () => Promise<unknown>) => {
+    global.fetch = jest.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (url === "/api/audio/list") {
+        return Promise.resolve({
+          json: () => Promise.resolve({ success: true, audio: mockAudio }),
+        });
+      }
+      if (url === "/api/audio/reorder" && opts?.method === "PUT") {
+        return reorder
+          ? reorder()
+          : Promise.resolve({
+              ok: true,
+              json: () => Promise.resolve({ success: true }),
+            });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
     });
+  };
+
+  it("moves audio up and down", async () => {
+    mockAudioFetch();
     renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
@@ -105,26 +122,15 @@ describe("AudioManager", () => {
     });
   });
 
-  it("saves order via PUT /api/audio/reorder", async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: true, audio: mockAudio }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true, audio: mockAudio }),
-      })
-      .mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: true, audio: mockAudio }),
-      });
+  it("should save order via PUT /api/audio/reorder when reordered", async () => {
+    mockAudioFetch();
 
     renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
 
-    fireEvent.click(screen.getByText(/SAVE ORDER/i));
+    fireEvent.click(screen.getAllByText("↓")[0]);
 
     await waitFor(() => {
       const calls = (global.fetch as jest.Mock).mock.calls;
@@ -255,26 +261,15 @@ describe("AudioManager", () => {
     );
   });
 
-  it("should show success toast when order saves", async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: true, audio: mockAudio }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      })
-      .mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: true, audio: mockAudio }),
-      });
+  it("should show success toast when order saves on reorder", async () => {
+    mockAudioFetch();
 
     renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
 
-    fireEvent.click(screen.getByText(/SAVE ORDER/i));
+    fireEvent.click(screen.getAllByText("↓")[0]);
 
     await waitFor(() =>
       expect(screen.getByRole("status")).toHaveTextContent(/Audio order saved/i)
@@ -282,26 +277,23 @@ describe("AudioManager", () => {
   });
 
   it("should show error toast with API body when reorder returns 409", async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: true, audio: mockAudio }),
-      })
-      .mockResolvedValueOnce({
+    mockAudioFetch(() =>
+      Promise.resolve({
         ok: false,
         status: 409,
         json: () =>
           Promise.resolve({
             error: "Someone else saved at the same moment. Reload and try again.",
           }),
-      });
+      })
+    );
 
     renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
 
-    fireEvent.click(screen.getByText(/SAVE ORDER/i));
+    fireEvent.click(screen.getAllByText("↓")[0]);
 
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent(/Someone else saved/i)

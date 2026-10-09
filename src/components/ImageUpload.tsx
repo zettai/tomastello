@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { fetchUploadConfig, putToSignedUrl } from "@/lib/uploadClient";
+import { useOptionalAdminToast } from "@/components/AdminToast";
 
 interface UploadResponse {
   success: boolean;
@@ -50,12 +51,21 @@ async function uploadPresigned(file: File): Promise<UploadResponse> {
 }
 
 export default function ImageUpload({ onUploadSuccess, adminMode = false }: ImageUploadProps) {
+  const toast = useOptionalAdminToast();
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const notifyError = (message: string) => {
+    if (toast) {
+      toast.showError(message);
+      return;
+    }
+    alert(message);
+  };
+
   const handleFileUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      alert("Please select an image file");
+      notifyError("Please select an image file");
       return;
     }
 
@@ -68,11 +78,11 @@ export default function ImageUpload({ onUploadSuccess, adminMode = false }: Imag
       if (result.success) {
         onUploadSuccess?.(result);
       } else {
-        alert(result.error || "Upload failed");
+        notifyError(result.error || "Upload failed");
       }
     } catch (error) {
       console.error("Upload error:", error);
-      alert("Upload failed");
+      notifyError("Upload failed");
     } finally {
       setUploading(false);
     }

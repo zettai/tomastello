@@ -13,14 +13,20 @@ import { Portal } from "./Portal";
 
 export type ToastKind = "success" | "error";
 
+export interface ToastSuccessOptions {
+  /** Optional Undo control; caller should enqueue undo through useAdminSave. */
+  onUndo?: () => void;
+}
+
 interface ToastItem {
   id: number;
   kind: ToastKind;
   message: string;
+  onUndo?: () => void;
 }
 
-interface AdminToastApi {
-  showSuccess: (message: string) => void;
+export interface AdminToastApi {
+  showSuccess: (message: string, options?: ToastSuccessOptions) => void;
   showError: (message: string) => void;
 }
 
@@ -28,7 +34,7 @@ const AdminToastContext = createContext<AdminToastApi | null>(null);
 
 const AUTO_DISMISS_MS = 4000;
 
-/** Retro fixed toast; success uses role=status, errors use role=alert. */
+/** Retro fixed toast stack (top-right); success uses role=status, errors use role=alert. */
 function ToastList({
   toasts,
   onDismiss,
@@ -60,8 +66,21 @@ function ToastList({
             <div className="admin-title-bar">
               {t.kind === "error" ? "[ ERROR ]" : "[ OK ]"}
             </div>
-            <div className="admin-inset p-3 m-1 admin-text text-sm">
-              {t.message}
+            <div className="admin-inset p-3 m-1 admin-text text-sm flex items-start justify-between gap-3">
+              <span>{t.message}</span>
+              {t.onUndo && (
+                <button
+                  type="button"
+                  className="admin-button text-xs shrink-0"
+                  onClick={() => {
+                    const undo = t.onUndo;
+                    onDismiss(t.id);
+                    undo?.();
+                  }}
+                >
+                  Undo
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -79,12 +98,20 @@ export function AdminToastProvider({
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const showSuccess = useCallback((message: string) => {
-    setToasts((prev) => [
-      ...prev,
-      { id: Date.now() + Math.random(), kind: "success", message },
-    ]);
-  }, []);
+  const showSuccess = useCallback(
+    (message: string, options?: ToastSuccessOptions) => {
+      setToasts((prev) => [
+        ...prev,
+        {
+          id: Date.now() + Math.random(),
+          kind: "success",
+          message,
+          onUndo: options?.onUndo,
+        },
+      ]);
+    },
+    []
+  );
 
   const showError = useCallback((message: string) => {
     setToasts((prev) => [
@@ -112,4 +139,9 @@ export function useAdminToast(): AdminToastApi {
     throw new Error("useAdminToast must be used within AdminToastProvider");
   }
   return ctx;
+}
+
+/** Optional toast for components that may render outside the admin shell. */
+export function useOptionalAdminToast(): AdminToastApi | null {
+  return useContext(AdminToastContext);
 }
