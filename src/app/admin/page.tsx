@@ -26,6 +26,7 @@ interface ImageListItem {
   url: string;
   size: number;
   lastModified: string;
+  originalName?: string;
 }
 
 interface SitePhoto {
@@ -192,16 +193,30 @@ function ImageManager({
   useEffect(() => {
     const load = async () => {
       try {
-        const [listRes, siteRes] = await Promise.all([
+        const [listRes, siteRes, metaRes] = await Promise.all([
           fetch("/api/images/list"),
           fetch("/api/site"),
+          fetch("/api/images/metadata"),
         ]);
         const listJson = await listRes.json();
         const siteJson = await siteRes.json();
+        const metaJson = await metaRes.json();
         const list: ImageListItem[] = listJson.success ? listJson.images : [];
-        setImages(list);
+        const metaByFile = new Map<string, string>();
+        if (metaJson.success && Array.isArray(metaJson.metadata)) {
+          for (const m of metaJson.metadata as { fileName?: string; originalName?: string }[]) {
+            if (m.fileName && m.originalName) {
+              metaByFile.set(m.fileName, m.originalName);
+            }
+          }
+        }
+        const enriched = list.map((img) => ({
+          ...img,
+          originalName: metaByFile.get(img.key),
+        }));
+        setImages(enriched);
         const photos: SitePhoto[] = Array.isArray(siteJson.photos) ? siteJson.photos : [];
-        const known = new Set(list.map((i) => i.key));
+        const known = new Set(enriched.map((i) => i.key));
         setOnSiteKeys(photos.map((p) => p.id).filter((id) => known.has(id)));
       } catch (error) {
         console.error("Failed to fetch images:", error);
@@ -261,7 +276,10 @@ function ImageManager({
   };
 
   const pendingName = pendingDeleteKey
-    ? displayFileName(pendingDeleteKey)
+    ? displayFileName(
+        pendingDeleteKey,
+        byKey.get(pendingDeleteKey)?.originalName
+      )
     : "";
 
   const moveOnSite = (index: number, direction: "up" | "down") => {
@@ -309,7 +327,7 @@ function ImageManager({
     >
       <Image
         src={image.url}
-        alt={displayFileName(image.key)}
+        alt={displayFileName(image.key, image.originalName)}
         width={64}
         height={64}
         className="object-cover h-auto"
@@ -319,7 +337,7 @@ function ImageManager({
       />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium admin-text break-words line-clamp-2">
-          {displayFileName(image.key)}
+          {displayFileName(image.key, image.originalName)}
         </p>
         <p className="text-xs admin-text-secondary mt-1">
           {new Date(image.lastModified).toLocaleDateString()}
@@ -333,7 +351,7 @@ function ImageManager({
               onClick={() => moveOnSite(index, "up")}
               disabled={index === 0}
               className="admin-button px-2 py-1 text-xs disabled:opacity-50"
-              aria-label={`Move ${displayFileName(image.key)} up`}
+              aria-label={`Move ${displayFileName(image.key, image.originalName)} up`}
             >
               ↑
             </button>
@@ -342,7 +360,7 @@ function ImageManager({
               onClick={() => moveOnSite(index, "down")}
               disabled={index === groupLength - 1}
               className="admin-button px-2 py-1 text-xs disabled:opacity-50"
-              aria-label={`Move ${displayFileName(image.key)} down`}
+              aria-label={`Move ${displayFileName(image.key, image.originalName)} down`}
             >
               ↓
             </button>
@@ -350,7 +368,7 @@ function ImageManager({
               type="button"
               onClick={() => hidePhoto(image.key)}
               className="admin-button px-2 py-1 text-xs"
-              aria-label={`Hide ${displayFileName(image.key)} from site`}
+              aria-label={`Hide ${displayFileName(image.key, image.originalName)} from site`}
             >
               HIDE
             </button>
@@ -361,7 +379,7 @@ function ImageManager({
             type="button"
             onClick={() => showPhoto(image.key)}
             className="admin-button px-2 py-1 text-xs"
-            aria-label={`Show ${displayFileName(image.key)} on site`}
+            aria-label={`Show ${displayFileName(image.key, image.originalName)} on site`}
           >
             SHOW
           </button>

@@ -90,7 +90,7 @@ describe("ImageUpload", () => {
 
     await waitFor(() => {
       expect(mockOnUploadSuccess).not.toHaveBeenCalled();
-      expect(alertMock).toHaveBeenCalledWith("Upload failed");
+      expect(alertMock).toHaveBeenCalledWith("test.jpg: Upload failed");
     });
 
     alertMock.mockRestore();
@@ -104,7 +104,9 @@ describe("ImageUpload", () => {
 
     fireEvent.change(input, { target: { files: [file] } });
 
-    expect(alertMock).toHaveBeenCalledWith("Please select an image file");
+    expect(alertMock).toHaveBeenCalledWith(
+      "test.txt: Please select an image file"
+    );
     alertMock.mockRestore();
   });
 
@@ -134,7 +136,7 @@ describe("ImageUpload", () => {
     const file = new File(["dummy"], "test.jpg", { type: "image/jpeg" });
     fireEvent.change(input, { target: { files: [file] } });
     await waitFor(() =>
-      expect(global.alert).toHaveBeenCalledWith("Upload failed")
+      expect(global.alert).toHaveBeenCalledWith("test.jpg: Upload failed")
     );
   });
 
@@ -145,7 +147,7 @@ describe("ImageUpload", () => {
     const file = new File(["dummy"], "test.jpg", { type: "image/jpeg" });
     fireEvent.change(input, { target: { files: [file] } });
     await waitFor(() =>
-      expect(global.alert).toHaveBeenCalledWith("Upload failed")
+      expect(global.alert).toHaveBeenCalledWith("test.jpg: Upload failed")
     );
   });
 

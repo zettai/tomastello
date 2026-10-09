@@ -85,7 +85,9 @@ describe("ImageUpload in presigned mode", () => {
 
     pick(container);
 
-    await waitFor(() => expect(global.alert).toHaveBeenCalledWith(message));
+    await waitFor(() =>
+      expect(global.alert).toHaveBeenCalledWith(`photo.png: ${message}`)
+    );
     expect(onSuccess).not.toHaveBeenCalled();
   });
 });

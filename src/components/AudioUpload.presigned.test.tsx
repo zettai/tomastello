@@ -106,7 +106,7 @@ describe("AudioUpload in presigned mode", () => {
 
       await jest.runAllTimersAsync();
       jest.useRealTimers();
-      expect(await screen.findByText("Failed to upload part 1 after 3 attempts")).toBeInTheDocument();
+      expect(await screen.findByText(/Failed to upload part 1 after 3 attempts/)).toBeInTheDocument();
       expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
         "/api/audio/upload/multipart/abort?uploadId=up-1&key=audio%2F1-mix.mp3"
       );
@@ -122,7 +122,7 @@ describe("AudioUpload in presigned mode", () => {
 
     upload(container, bigFile(0));
 
-    expect(await screen.findByText("File is empty")).toBeInTheDocument();
+    expect(await screen.findByText(/File is empty/)).toBeInTheDocument();
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/api/uploads/config"]);
   });
 
@@ -153,7 +153,7 @@ describe("AudioUpload in presigned mode", () => {
 
       await jest.runAllTimersAsync();
       jest.useRealTimers();
-      expect(await screen.findByText("Failed to upload part 1 after 3 attempts")).toBeInTheDocument();
+      expect(await screen.findByText(/Failed to upload part 1 after 3 attempts/)).toBeInTheDocument();
     } finally {
       jest.useRealTimers();
     }

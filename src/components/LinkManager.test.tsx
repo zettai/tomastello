@@ -117,7 +117,9 @@ describe("LinkManager", () => {
 
     expect(screen.getByText("Add New Link")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Enter link text")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("https://example.com")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(/bandcamp\.com|https:\/\/example\.com/i)
+    ).toBeInTheDocument();
   });
 
   it("creates new link successfully", async () => {
@@ -150,14 +152,14 @@ describe("LinkManager", () => {
     fireEvent.change(screen.getByPlaceholderText("Enter link text"), {
       target: { value: "New Link" },
     });
-    fireEvent.change(screen.getByPlaceholderText("https://example.com"), {
+    fireEvent.change(screen.getByPlaceholderText(/bandcamp\.com|https:\/\/example\.com/i), {
       target: { value: "https://new.com" },
     });
     fireEvent.change(screen.getByPlaceholderText("Optional description"), {
       target: { value: "New description" },
     });
 
-    fireEvent.click(screen.getByText("SAVE"));
+    fireEvent.click(screen.getByText(/^(ADD|UPDATE)$/));
 
     await waitFor(() => {
       expect(screen.getByText("New Link")).toBeInTheDocument();
@@ -186,11 +188,11 @@ describe("LinkManager", () => {
     fireEvent.change(screen.getByPlaceholderText("Enter link text"), {
       target: { value: "New Link" },
     });
-    fireEvent.change(screen.getByPlaceholderText("https://example.com"), {
+    fireEvent.change(screen.getByPlaceholderText(/bandcamp\.com|https:\/\/example\.com/i), {
       target: { value: "https://new.com" },
     });
 
-    fireEvent.click(screen.getByText("SAVE"));
+    fireEvent.click(screen.getByText(/^(ADD|UPDATE)$/));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent("Failed");
@@ -216,11 +218,11 @@ describe("LinkManager", () => {
     fireEvent.change(screen.getByPlaceholderText("Enter link text"), {
       target: { value: "New Link" },
     });
-    fireEvent.change(screen.getByPlaceholderText("https://example.com"), {
+    fireEvent.change(screen.getByPlaceholderText(/bandcamp\.com|https:\/\/example\.com/i), {
       target: { value: "https://new.com" },
     });
 
-    fireEvent.click(screen.getByText("SAVE"));
+    fireEvent.click(screen.getByText(/^(ADD|UPDATE)$/));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent("Failed to create link");
@@ -274,7 +276,7 @@ describe("LinkManager", () => {
       target: { value: "Updated Link" },
     });
 
-    fireEvent.click(screen.getByText("SAVE"));
+    fireEvent.click(screen.getByText(/^(ADD|UPDATE)$/));
 
     await waitFor(() => {
       expect(screen.getByText("Updated Link")).toBeInTheDocument();
@@ -304,7 +306,7 @@ describe("LinkManager", () => {
       target: { value: "Updated Link" },
     });
 
-    fireEvent.click(screen.getByText("SAVE"));
+    fireEvent.click(screen.getByText(/^(ADD|UPDATE)$/));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent("Update failed");
@@ -332,7 +334,7 @@ describe("LinkManager", () => {
       target: { value: "Updated Link" },
     });
 
-    fireEvent.click(screen.getByText("SAVE"));
+    fireEvent.click(screen.getByText(/^(ADD|UPDATE)$/));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent("Failed to update link");

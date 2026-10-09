@@ -2,11 +2,14 @@
 
 import { useState, useRef } from "react";
 import { fetchUploadConfig, putToSignedUrl, type UploadConfig } from "@/lib/uploadClient";
+import { mapWithConcurrency } from "@/lib/uploadQueue";
 
 interface AudioUploadProps {
   readonly onUploadSuccess?: () => void;
   readonly adminMode?: boolean;
 }
+
+const UPLOAD_CONCURRENCY = 2;
 
 const MULTIPART_THRESHOLD = 10 * 1024 * 1024; // 10 MB
 const MIN_PART_SIZE = 5 * 1024 * 1024; // Scaleway requires ≥5 MB per non-final part
@@ -158,62 +161,96 @@ export default function AudioUpload({
 }: AudioUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
-  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<{
+    fileDone: number;
+    fileTotal: number;
+    currentName?: string;
+    partCurrent?: number;
+    partTotal?: number;
+  } | null>(null);
   const [retryMessage, setRetryMessage] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (file: File) => {
+  const uploadOne = async (file: File, config: UploadConfig): Promise<UploadResult> => {
+    const title = titleFromFilename(file.name);
+    if (file.size === 0) {
+      return { success: false, error: "File is empty" };
+    }
+    if (config.mode === "presigned" || file.size >= MULTIPART_THRESHOLD) {
+      return uploadMultipart(file, title, config, (current, total, retryMsg) => {
+        setProgress((prev) =>
+          prev
+            ? { ...prev, partCurrent: current, partTotal: total, currentName: file.name }
+            : prev
+        );
+        setRetryMessage(retryMsg ?? "");
+      });
+    }
+    return uploadSingleFile(file, title);
+  };
+
+  const handleFilesUpload = async (fileList: FileList | File[]) => {
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+
     setUploadError("");
     setRetryMessage("");
-    setProgress(null);
     setUploading(true);
+    setProgress({ fileDone: 0, fileTotal: files.length });
 
-    const title = titleFromFilename(file.name);
-
+    const errors: string[] = [];
     try {
-      let result: UploadResult;
       const config = await fetchUploadConfig();
-
-      if (file.size === 0) {
-        result = { success: false, error: "File is empty" };
-      } else if (config.mode === "presigned" || file.size >= MULTIPART_THRESHOLD) {
-        // Presigned mode always goes direct to the bucket, so small files use one part.
-        result = await uploadMultipart(file, title, config, (current, total, retryMsg) => {
-          setProgress({ current, total });
-          setRetryMessage(retryMsg ?? "");
+      let done = 0;
+      await mapWithConcurrency(files, UPLOAD_CONCURRENCY, async (file) => {
+        setProgress({
+          fileDone: done,
+          fileTotal: files.length,
+          currentName: file.name,
         });
-      } else {
-        result = await uploadSingleFile(file, title);
+        try {
+          const result = await uploadOne(file, config);
+          if (result.success) {
+            onUploadSuccess?.();
+          } else {
+            errors.push(`${file.name}: ${result.error ?? "Upload failed"}`);
+          }
+        } catch (error) {
+          console.error("Audio upload error:", error);
+          errors.push(`${file.name}: Upload failed`);
+        } finally {
+          done += 1;
+          setProgress({
+            fileDone: done,
+            fileTotal: files.length,
+            currentName: file.name,
+          });
+        }
+        return null;
+      });
+      if (errors.length > 0) {
+        setUploadError(errors.join("; "));
       }
-
-      if (result.success) {
-        setUploadError("");
-        onUploadSuccess?.();
-      } else {
-        setUploadError(result.error ?? "Upload failed");
-      }
-    } catch (error) {
-      console.error("Audio upload error:", error);
-      setUploadError("Upload failed");
     } finally {
       setUploading(false);
       setProgress(null);
       setRetryMessage("");
+      if (inputRef.current) inputRef.current.value = "";
     }
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      handleFileUpload(file);
+    const list = event.target.files;
+    if (list && list.length > 0) {
+      void handleFilesUpload(list);
     }
   };
 
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      handleFileUpload(file);
+    const list = event.dataTransfer.files;
+    if (list && list.length > 0) {
+      void handleFilesUpload(list);
     }
   };
 
@@ -234,13 +271,15 @@ export default function AudioUpload({
     ? "admin-text-secondary"
     : "text-foreground-tertiary";
 
-  const progressPercent =
-    progress ? Math.round((progress.current / progress.total) * 100) : 0;
+  const partPercent =
+    progress?.partCurrent && progress.partTotal
+      ? Math.round((progress.partCurrent / progress.partTotal) * 100)
+      : 0;
 
   return (
     <div className="w-full max-w-md mx-auto space-y-3">
       {uploadError && (
-        <p className="text-xs text-red-500">{uploadError}</p>
+        <p className="text-xs form-error p-2">{uploadError}</p>
       )}
 
       <button
@@ -258,14 +297,23 @@ export default function AudioUpload({
             {progress ? (
               <>
                 <p className={`${textSecondaryClass} text-sm`}>
-                  Part {progress.current} of {progress.total} &middot; {progressPercent}%
+                  File {progress.fileDone}/{progress.fileTotal}
+                  {progress.currentName ? ` · ${progress.currentName}` : ""}
                 </p>
-                <div className="w-full bg-gray-700 h-1 rounded">
-                  <div
-                    className="bg-current h-1 rounded transition-all"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
+                {progress.partTotal ? (
+                  <>
+                    <p className={`${textSecondaryClass} text-sm`}>
+                      Part {progress.partCurrent} of {progress.partTotal} &middot;{" "}
+                      {partPercent}%
+                    </p>
+                    <div className="w-full bg-gray-700 h-1 rounded">
+                      <div
+                        className="bg-current h-1 rounded transition-all"
+                        style={{ width: `${partPercent}%` }}
+                      />
+                    </div>
+                  </>
+                ) : null}
                 {retryMessage && (
                   <p className={`${textSecondaryClass} text-xs`}>{retryMessage}</p>
                 )}
@@ -282,7 +330,7 @@ export default function AudioUpload({
                 &gt; UPLOAD AUDIO
               </p>
               <p className={`text-sm ${textSecondaryClass}`}>
-                Drag and drop or click to select
+                Drag and drop or click to select (multiple OK)
               </p>
               <p className={`text-xs ${textTertiaryClass} mt-2`}>
                 Max 100MB per file &bull; MP3, OGG, FLAC, WAV, AAC, WebM
@@ -296,6 +344,7 @@ export default function AudioUpload({
         type="file"
         data-audio
         accept=".mp3,.ogg,.flac,.wav,.aac,.m4a,.webm"
+        multiple
         onChange={handleFileSelect}
         aria-label="Select audio file"
         className="sr-only"

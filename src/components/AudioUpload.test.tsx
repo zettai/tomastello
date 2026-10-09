@@ -79,7 +79,7 @@ describe("AudioUpload", () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() =>
-      expect(screen.getByText("Server error")).toBeInTheDocument()
+      expect(screen.getByText(/Server error/)).toBeInTheDocument()
     );
   });
 
@@ -91,7 +91,7 @@ describe("AudioUpload", () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() =>
-      expect(screen.getByText("Upload failed")).toBeInTheDocument()
+      expect(screen.getByText(/Upload failed/)).toBeInTheDocument()
     );
   });
 
@@ -176,7 +176,7 @@ describe("AudioUpload", () => {
     fireEvent.change(input, { target: { files: [bigFile] } });
 
     await waitFor(() =>
-      expect(screen.getByText("Rate limit exceeded")).toBeInTheDocument(),
+      expect(screen.getByText(/Rate limit exceeded/)).toBeInTheDocument(),
       { timeout: 5000 }
     );
   });

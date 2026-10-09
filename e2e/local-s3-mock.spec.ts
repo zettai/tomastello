@@ -16,6 +16,11 @@ const VIEWPORTS = [
   { width: 1440, height: 900 },
 ] as const;
 
+const STORY6_SHOTS = [
+  { width: 320, height: 568 },
+  { width: 1440, height: 900 },
+] as const;
+
 const PNG = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, 0x00,
   0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00,
@@ -42,6 +47,18 @@ async function loginViaMagicLink(page: Page, request: APIRequestContext) {
   const { url } = JSON.parse(line) as { url: string };
   await page.goto(url);
   await expect(page.getByText(`LOGGED IN AS: ${ADMIN_EMAIL}`)).toBeVisible({ timeout: 30_000 });
+}
+
+function photosSection(page: Page) {
+  return page.locator("section#photos");
+}
+
+function audioSection(page: Page) {
+  return page.locator("section#audio");
+}
+
+function linksSection(page: Page) {
+  return page.locator("section#links");
 }
 
 async function assertModalFullyVisible(page: Page): Promise<void> {
@@ -81,9 +98,9 @@ test("upload image and audio on moto mock without scw.cloud", async ({ page, req
   });
   await expect(page.getByText("e2e-pixel.png").first()).toBeVisible({ timeout: 60_000 });
 
-  const imageRow = page.locator(".admin-inset", { hasText: "e2e-pixel.png" }).first();
-  await imageRow.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "[ SAVE SELECTION ]" }).click();
+  const imageRow = photosSection(page).locator(".admin-inset", { hasText: "e2e-pixel.png" }).first();
+  await imageRow.getByRole("button", { name: /Show e2e-pixel\.png/i }).click();
+  await expect(page.locator(".admin-toast[role='status']")).toContainText(/Photo shown/i);
 
   await page.locator("input[data-audio]").setInputFiles({
     name: "e2e-tone.mp3",
@@ -100,11 +117,10 @@ test("upload image and audio on moto mock without scw.cloud", async ({ page, req
   await page.goto("/admin");
   await expect(page.getByText(`LOGGED IN AS: ${ADMIN_EMAIL}`)).toBeVisible();
 
-  const imageManager = page.locator("div.admin-window", { hasText: "[ IMAGE MANAGER ]" });
-  const imageRowAfter = imageManager.locator(".admin-inset", { hasText: "e2e-pixel.png" }).first();
+  const imageRowAfter = photosSection(page).locator(".admin-inset", { hasText: "e2e-pixel.png" }).first();
   await imageRowAfter.getByRole("button", { name: "DEL" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
-  await expect(imageManager.locator(".admin-inset", { hasText: "e2e-pixel.png" })).toHaveCount(0, {
+  await expect(photosSection(page).locator(".admin-inset", { hasText: "e2e-pixel.png" })).toHaveCount(0, {
     timeout: 30_000,
   });
 
@@ -121,12 +137,126 @@ test("upload image and audio on moto mock without scw.cloud", async ({ page, req
 
   await page.goto("/admin");
   await expect(page.getByText(`LOGGED IN AS: ${ADMIN_EMAIL}`)).toBeVisible();
-  const audioManager = page.locator("div.admin-window", { hasText: "[ AUDIO MANAGER ]" });
-  await audioManager.locator(".admin-inset", { hasText: "e2e" }).first().getByRole("button", { name: "DEL" }).click();
+  await audioSection(page).locator(".admin-inset", { hasText: "e2e" }).first().getByRole("button", { name: "DEL" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("e2e tone", { exact: false })).toHaveCount(0, { timeout: 30_000 });
 
   expect(scwHits).toEqual([]);
+});
+
+test.describe("Story 6 admin save-on-change", () => {
+  test.beforeAll(async () => {
+    await mkdir(ARTIFACTS_DIR, { recursive: true });
+  });
+
+  test("should upload three photos, show/reorder, undo hide, and normalize bare URLs", async ({
+    page,
+    request,
+  }) => {
+    await loginViaMagicLink(page, request);
+
+    await expect(page.getByRole("button", { name: /SAVE SELECTION|SAVE ORDER|^\[ SAVE \]$/i })).toHaveCount(0);
+
+    await page.locator("input[data-image]").setInputFiles([
+      { name: "story6-a.png", mimeType: "image/png", buffer: PNG },
+      { name: "story6-b.png", mimeType: "image/png", buffer: PNG },
+      { name: "story6-c.png", mimeType: "image/png", buffer: PNG },
+    ]);
+    await expect(page.getByText("story6-a.png").first()).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByText("story6-b.png").first()).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByText("story6-c.png").first()).toBeVisible({ timeout: 90_000 });
+
+    const photos = photosSection(page);
+    for (const name of ["story6-a.png", "story6-b.png", "story6-c.png"]) {
+      await photos.locator(".admin-inset", { hasText: name }).getByRole("button", { name: new RegExp(`Show ${name}`, "i") }).click();
+      await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo shown/i, {
+        timeout: 30_000,
+      });
+    }
+    await expect(photos.getByText(/On the site \(3\)/i)).toBeVisible();
+
+    const onSite = photos.locator('[data-photo-group="on-site"]');
+    await expect(onSite).toHaveCount(3);
+    await onSite.nth(0).getByRole("button", { name: /Move .* down/i }).click();
+    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo order saved/i);
+
+    const orderAfterMove = await onSite.locator("p.text-sm").allTextContents();
+    expect(orderAfterMove[0]).toContain("story6-b.png");
+    expect(orderAfterMove[1]).toContain("story6-a.png");
+
+    await page.reload();
+    await expect(page.getByText(`LOGGED IN AS: ${ADMIN_EMAIL}`)).toBeVisible({ timeout: 30_000 });
+    const onSiteReload = photosSection(page).locator('[data-photo-group="on-site"]');
+    await expect(onSiteReload).toHaveCount(3);
+    const orderReload = await onSiteReload.locator("p.text-sm").allTextContents();
+    expect(orderReload[0]).toContain("story6-b.png");
+    expect(orderReload[1]).toContain("story6-a.png");
+    expect(orderReload[2]).toContain("story6-c.png");
+
+    await onSiteReload.nth(0).getByRole("button", { name: /Hide story6-b\.png/i }).click();
+    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo hidden/i);
+    await page.locator(".admin-toast[role='status']").last().getByRole("button", { name: "Undo" }).click();
+    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photos restored/i);
+    await expect(photosSection(page).locator('[data-photo-group="on-site"]', { hasText: "story6-b.png" })).toHaveCount(1);
+
+    const links = linksSection(page);
+    await links.getByRole("button", { name: "+ ADD LINK" }).click();
+    await links.getByPlaceholder("Enter link text").fill("Bandcamp");
+    await links.getByPlaceholder(/bandcamp\.com/i).fill("bandcamp.com/tomastello");
+    await links.getByRole("button", { name: "ADD", exact: true }).click();
+    await expect(links.getByText("https://bandcamp.com/tomastello")).toBeVisible({ timeout: 30_000 });
+    await expect(links.getByText(/Created by/i)).toHaveCount(0);
+
+    await expect(page.getByRole("button", { name: /SAVE SELECTION|SAVE ORDER|^\[ SAVE \]$/i })).toHaveCount(0);
+
+    for (const vp of STORY6_SHOTS) {
+      await page.setViewportSize(vp);
+      await page.screenshot({
+        path: path.join(ARTIFACTS_DIR, `story6-admin-${vp.width}x${vp.height}.png`),
+        fullPage: true,
+      });
+    }
+  });
+
+  test("should reorder on-site photos with the keyboard", async ({ page, request }) => {
+    await loginViaMagicLink(page, request);
+
+    // Isolate from photos left by earlier tests in the same moto bucket.
+    const photos = photosSection(page);
+    const priorOnSite = photos.locator('[data-photo-group="on-site"]');
+    const priorCount = await priorOnSite.count();
+    for (let i = 0; i < priorCount; i += 1) {
+      const hide = priorOnSite.nth(0).getByRole("button", { name: /^HIDE$/i });
+      if (await hide.count()) {
+        await hide.click();
+        await expect(page.locator(".admin-toast[role='status']").last()).toBeVisible({ timeout: 30_000 });
+      }
+    }
+
+    await page.locator("input[data-image]").setInputFiles([
+      { name: "kb-a.png", mimeType: "image/png", buffer: PNG },
+      { name: "kb-b.png", mimeType: "image/png", buffer: PNG },
+    ]);
+    await expect(page.getByText("kb-a.png").first()).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByText("kb-b.png").first()).toBeVisible({ timeout: 90_000 });
+
+    await photos.getByRole("button", { name: /Show kb-a\.png/i }).click();
+    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo shown/i);
+    await photos.getByRole("button", { name: /Show kb-b\.png/i }).click();
+    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo shown/i);
+    await expect(photos.locator('[data-photo-group="on-site"]', { hasText: "kb-a.png" })).toHaveCount(1);
+    await expect(photos.locator('[data-photo-group="on-site"]', { hasText: "kb-b.png" })).toHaveCount(1);
+
+    const down = photos.getByRole("button", { name: /Move kb-a\.png down/i });
+    await down.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo order saved/i);
+
+    const order = await photos.locator('[data-photo-group="on-site"] p.text-sm').allTextContents();
+    const kbOrder = order.filter((t) => t.includes("kb-a.png") || t.includes("kb-b.png"));
+    expect(kbOrder[0]).toContain("kb-b.png");
+    expect(kbOrder[1]).toContain("kb-a.png");
+  });
 });
 
 test.describe("delete confirm modal visibility across viewports", () => {
@@ -147,8 +277,7 @@ test.describe("delete confirm modal visibility across viewports", () => {
         mimeType: "image/png",
         buffer: PNG,
       });
-      const imageManager = page.locator("div.admin-window", { hasText: "[ IMAGE MANAGER ]" });
-      const row = imageManager.locator(".admin-inset", { hasText: name }).first();
+      const row = photosSection(page).locator(".admin-inset", { hasText: name }).first();
       await expect(row).toBeAttached({ timeout: 60_000 });
       await row.scrollIntoViewIfNeeded();
       await row.getByRole("button", { name: "DEL" }).click();
@@ -172,8 +301,7 @@ test.describe("delete confirm modal visibility across viewports", () => {
         buffer: MP3,
       });
       const titleHint = fileName.replace(/\.mp3$/, "").replaceAll(/-/g, " ");
-      const audioManager = page.locator("div.admin-window", { hasText: "[ AUDIO MANAGER ]" });
-      const row = audioManager.locator(".admin-inset", { hasText: titleHint }).first();
+      const row = audioSection(page).locator(".admin-inset", { hasText: titleHint }).first();
       await expect(row).toBeAttached({ timeout: 90_000 });
       await row.scrollIntoViewIfNeeded();
       await row.getByRole("button", { name: "DEL" }).click();
@@ -191,11 +319,11 @@ test.describe("delete confirm modal visibility across viewports", () => {
       await loginViaMagicLink(page, request);
 
       const linkText = `VP Link ${label}`;
-      const linkManager = page.locator("div.admin-window", { hasText: "[ MANAGE LINKS ]" });
+      const linkManager = linksSection(page);
       await linkManager.getByRole("button", { name: "+ ADD LINK" }).click();
       await linkManager.getByPlaceholder("Enter link text").fill(linkText);
-      await linkManager.getByPlaceholder("https://example.com").fill(`https://example.com/${label}`);
-      await linkManager.getByRole("button", { name: "SAVE", exact: true }).click();
+      await linkManager.getByPlaceholder(/bandcamp\.com/i).fill(`https://example.com/${label}`);
+      await linkManager.getByRole("button", { name: "ADD", exact: true }).click();
       await expect(linkManager.getByText(linkText)).toBeVisible({ timeout: 30_000 });
 
       const row = linkManager.locator("div.admin-window", { hasText: linkText }).first();
@@ -222,9 +350,8 @@ test("keyboard-only image delete confirm flow", async ({ page, request }) => {
   });
   await expect(page.getByText("kb-delete.png").first()).toBeVisible({ timeout: 60_000 });
 
-  const imageManager = page.locator("div.admin-window", { hasText: "[ IMAGE MANAGER ]" });
-  const row = imageManager.locator(".admin-inset", { hasText: "kb-delete.png" }).first();
-  await row.getByRole("button", { name: "DEL" }).click();
+  const row = photosSection(page).locator(".admin-inset", { hasText: "kb-delete.png" }).first();
+  await row.getByRole("button", { name: "DEL", exact: true }).click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
@@ -234,7 +361,7 @@ test("keyboard-only image delete confirm flow", async ({ page, request }) => {
   await expect(dialog).toHaveCount(0);
   await expect(row).toBeVisible();
 
-  await row.getByRole("button", { name: "DEL" }).click();
+  await row.getByRole("button", { name: "DEL", exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();
 
@@ -242,18 +369,20 @@ test("keyboard-only image delete confirm flow", async ({ page, request }) => {
   await expect(dialog.getByRole("button", { name: "Delete" })).toBeFocused();
   await page.keyboard.press("Enter");
 
-  await expect(imageManager.locator(".admin-inset", { hasText: "kb-delete.png" })).toHaveCount(0, {
+  await expect(photosSection(page).locator(".admin-inset", { hasText: "kb-delete.png" })).toHaveCount(0, {
     timeout: 30_000,
   });
 });
 
 test("shows error toast when moto stops mid-save", async ({ page, request }) => {
   await loginViaMagicLink(page, request);
-  await expect(page.getByText(/UPDATE ABOUT TEXT/i)).toBeVisible();
+  await expect(page.getByText(/\[ ABOUT \]/i)).toBeVisible();
 
   stopMoto();
 
-  await page.getByRole("button", { name: "[ SAVE ]" }).click();
+  const textarea = page.getByPlaceholder("Enter about content (max 2000 characters)");
+  await textarea.fill(`Fault inject ${Date.now()}`);
+  await textarea.blur();
   // Prefer .admin-toast: Next.js also mounts #__next-route-announcer__ with role=alert.
   const toast = page.locator(".admin-toast[role='alert']");
   await expect(toast).toBeVisible({ timeout: 60_000 });

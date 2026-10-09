@@ -5,6 +5,7 @@ import { LinkMetadata } from "@/types/link";
 import { useAdminToast } from "@/components/AdminToast";
 import { useAdminSave } from "@/components/AdminSave";
 import { ConfirmDeleteModal } from "@/components/OverlayModal";
+import { normalizeLinkUrl } from "@/lib/normalizeUrl";
 
 interface LinkManagerProps {
   readonly refreshTrigger: number;
@@ -22,6 +23,7 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
     href: "",
     description: "",
   });
+  const [hrefError, setHrefError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<LinkMetadata | null>(null);
   const deleteTriggerRef = useRef<HTMLElement | null>(null);
 
@@ -42,19 +44,31 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
     fetchLinks();
   }, [refreshTrigger]);
 
+  const resolvedHref = (): string | null => {
+    const normalized = normalizeLinkUrl(formData.href);
+    if (!normalized) {
+      setHrefError("Enter a valid URL (bare domains get https://)");
+      return null;
+    }
+    setHrefError("");
+    return normalized;
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.text || !formData.href) {
+    if (!formData.text) {
       showError("Text and URL are required");
       return;
     }
+    const href = resolvedHref();
+    if (!href) return;
 
     try {
       const response = await fetch("/api/links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, href }),
       });
 
       const result = await response.json();
@@ -77,16 +91,18 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
 
     if (!editingLink) return;
 
-    if (!formData.text || !formData.href) {
+    if (!formData.text) {
       showError("Text and URL are required");
       return;
     }
+    const href = resolvedHref();
+    if (!href) return;
 
     try {
       const response = await fetch(`/api/links/${editingLink.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, href }),
       });
 
       const result = await response.json();
@@ -158,6 +174,7 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
 
   const startEditing = (link: LinkMetadata) => {
     setEditingLink(link);
+    setHrefError("");
     setFormData({
       text: link.text,
       href: link.href,
@@ -168,6 +185,7 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
   const handleCancel = () => {
     setEditingLink(null);
     setIsCreating(false);
+    setHrefError("");
     setFormData({ text: "", href: "", description: "" });
   };
 
@@ -223,15 +241,23 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
               </label>
               <input
                 id="link-href"
-                type="url"
-                placeholder="https://example.com"
+                type="text"
+                inputMode="url"
+                autoComplete="url"
+                placeholder="bandcamp.com/… or https://example.com"
                 value={formData.href}
-                onChange={(e) =>
-                  setFormData({ ...formData, href: e.target.value })
-                }
-                className="admin-input w-full"
+                onChange={(e) => {
+                  setHrefError("");
+                  setFormData({ ...formData, href: e.target.value });
+                }}
+                className={`admin-input w-full ${hrefError ? "form-error" : ""}`}
                 required
               />
+              {hrefError && (
+                <p className="form-error text-xs mt-1 p-2" role="alert">
+                  {hrefError}
+                </p>
+              )}
             </div>
             <div>
               <label
@@ -253,7 +279,7 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
             </div>
             <div className="flex gap-2">
               <button type="submit" className="admin-button px-4 py-2">
-                SAVE
+                {isCreating ? "ADD" : "UPDATE"}
               </button>
               <button
                 type="button"
@@ -291,9 +317,6 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
                     {link.description}
                   </p>
                 )}
-                <div className="text-xs admin-text-secondary mt-1 break-all">
-                  Created by {link.createdBy}
-                </div>
               </div>
               <div className="flex gap-1 flex-shrink-0">
                 <button

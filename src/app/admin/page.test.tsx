@@ -544,7 +544,7 @@ describe("AdminPage", () => {
 
   const mockByUrl = (
     images = mockImages,
-    photos: { id: string }[] = [],
+    photos: { id: string; url?: string }[] = [],
     siteOverride?: Record<string, unknown>
   ) => {
     const siteData = siteOverride ?? { about: { content: mockAboutContent }, photos, links: mockLinks };
@@ -553,6 +553,18 @@ describe("AdminPage", () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ user: mockUser }) });
       if (url === "/api/images/list")
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, images }) });
+      if (url === "/api/images/metadata")
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              metadata: images.map((img) => ({
+                fileName: img.key,
+                originalName: img.key.split("/").pop(),
+              })),
+            }),
+        });
       if (url === "/api/audio/list")
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, audio: [] }) });
       if (url === "/api/site" && opts?.method === "PUT")
