@@ -253,8 +253,8 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                className="admin-input w-full"
-                rows={2}
+                className="admin-input w-full min-h-[12rem] resize-y"
+                rows={10}
               />
             </div>
             <div className="flex gap-2">

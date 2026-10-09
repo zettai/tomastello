@@ -18,7 +18,7 @@ export default function LinksSection({ links }: { links: PublicLink[] }) {
                 &gt; {link.text}
               </a>
               {link.description && (
-                <p className="text-sm leading-relaxed max-w-[70ch] text-foreground-secondary mt-1 ml-4">{link.description}</p>
+                <p className="text-sm leading-relaxed text-foreground-secondary mt-1 ml-4">{link.description}</p>
               )}
             </li>
           ))}
