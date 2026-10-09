@@ -120,7 +120,7 @@ describe("AdminPage", () => {
     render(<AdminPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/UPDATE ABOUT TEXT/i)).toBeInTheDocument();
+      expect(screen.getByText(/\[ ABOUT \]/i)).toBeInTheDocument();
       expect(
         screen.getByPlaceholderText("Enter about content (max 2000 characters)")
       ).toHaveValue(mockAboutContent);
@@ -161,7 +161,7 @@ describe("AdminPage", () => {
     render(<AdminPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/UPDATE ABOUT TEXT/i)).toBeInTheDocument();
+      expect(screen.getByText(/\[ ABOUT \]/i)).toBeInTheDocument();
     });
 
     const textarea = screen.getByPlaceholderText(
@@ -263,7 +263,7 @@ describe("AdminPage", () => {
       .mockRejectedValueOnce(new Error("fetch error"));
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/UPDATE ABOUT TEXT/i)).toBeInTheDocument();
+      expect(screen.getByText(/\[ ABOUT \]/i)).toBeInTheDocument();
     });
   });
 
@@ -306,7 +306,7 @@ describe("AdminPage", () => {
     });
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/UPDATE ABOUT TEXT/i)).toBeInTheDocument();
+      expect(screen.getByText(/\[ ABOUT \]/i)).toBeInTheDocument();
     });
     const textarea = screen.getByPlaceholderText(
       "Enter about content (max 2000 characters)"
@@ -319,40 +319,46 @@ describe("AdminPage", () => {
   });
 
   it("handles fetch error in fetchImages", async () => {
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ user: mockUser }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ about: { content: mockAboutContent }, links: mockLinks }),
-      })
-      .mockRejectedValueOnce(new Error("fetch error"));
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url === "/api/auth/profile")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ user: mockUser }) });
+      if (url === "/api/admin/security")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ lock: { locked: false }, events: [] }) });
+      if (url === "/api/images/list")
+        return Promise.reject(new Error("fetch error"));
+      if (url === "/api/audio/list")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, audio: [] }) });
+      if (url === "/api/site")
+        return Promise.resolve({
+          ok: true,
+          headers: { get: () => null },
+          json: () => Promise.resolve({ about: { content: mockAboutContent }, photos: [], links: mockLinks }),
+        });
+      return Promise.resolve({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({}) });
+    });
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/NO IMAGES|LOADING IMAGES/i)).toBeInTheDocument();
+      expect(screen.getByText(/NO IMAGES/i)).toBeInTheDocument();
     });
   });
 
-  it("handles fetch error in fetchSavedPhotos", async () => {
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ user: mockUser }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ about: { content: mockAboutContent }, links: mockLinks }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true, images: mockImages }),
-      })
-      .mockRejectedValueOnce(new Error("fetch error"));
+  it("handles fetch error when site photos load fails", async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url === "/api/auth/profile")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ user: mockUser }) });
+      if (url === "/api/admin/security")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ lock: { locked: false }, events: [] }) });
+      if (url === "/api/images/list")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, images: mockImages }) });
+      if (url === "/api/audio/list")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, audio: [] }) });
+      if (url === "/api/site")
+        return Promise.reject(new Error("fetch error"));
+      return Promise.resolve({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({}) });
+    });
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText("image1.jpg")).toBeInTheDocument();
+      expect(screen.getByText(/NO IMAGES/i)).toBeInTheDocument();
     });
   });
 
@@ -419,10 +425,7 @@ describe("AdminPage", () => {
     await waitFor(() => {
       expect(screen.getByText("image1.jpg")).toBeInTheDocument();
     });
-    const checkboxes = screen.queryAllByRole("checkbox");
-    if (checkboxes[0]) {
-      fireEvent.click(checkboxes[0]);
-    }
+    fireEvent.click(screen.getByRole("button", { name: /Show image1\.jpg/i }));
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/fetch error/i);
     });
@@ -451,7 +454,15 @@ describe("AdminPage", () => {
           return Promise.resolve({
             ok: true,
             headers: { get: () => null },
-            json: () => Promise.resolve({ about: { content: mockAboutContent }, photos: [], links: mockLinks }),
+            json: () =>
+              Promise.resolve({
+                about: { content: mockAboutContent },
+                photos: [
+                  { id: "image1.jpg", url: "/images/image1.jpg" },
+                  { id: "image2.jpg", url: "/images/image2.jpg" },
+                ],
+                links: mockLinks,
+              }),
           });
         }
         return Promise.reject(new Error("fetch error"));
@@ -461,6 +472,7 @@ describe("AdminPage", () => {
     render(<AdminPage />);
     await waitFor(() => {
       expect(screen.getByText("image1.jpg")).toBeInTheDocument();
+      expect(screen.getAllByText("↓").length).toBeGreaterThan(0);
     });
     fireEvent.click(screen.getAllByText("↓")[0]);
     await waitFor(() => {
@@ -551,36 +563,60 @@ describe("AdminPage", () => {
     });
   };
 
-  it("marks saved photos as selected on load", async () => {
-    mockByUrl(mockImages, [{ id: "image1.jpg" }]);
+  it("should place saved photos in On the site on load", async () => {
+    mockByUrl(mockImages, [{ id: "image1.jpg", url: mockImages[0].url }]);
 
     render(<AdminPage />);
 
     await waitFor(() => {
-      const checkboxes = screen.getAllByRole("checkbox");
-      expect(checkboxes[0]).toBeChecked();
-      expect(checkboxes[1]).not.toBeChecked();
+      expect(screen.getByText(/On the site \(1\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Not shown \(1\)/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Hide image1\.jpg/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Show image2\.jpg/i })).toBeInTheDocument();
     });
   });
 
-  it("toggles image selection via checkbox", async () => {
+  it("should show a photo on the site when SHOW is clicked", async () => {
     mockByUrl();
 
     render(<AdminPage />);
 
     await waitFor(() => {
-      expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(0);
+      expect(screen.getByRole("button", { name: /Show image1\.jpg/i })).toBeInTheDocument();
     });
 
-    const checkbox = screen.getAllByRole("checkbox")[0];
-    fireEvent.click(checkbox);
-    expect(checkbox).toBeChecked();
-    fireEvent.click(checkbox);
-    expect(checkbox).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: /Show image1\.jpg/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent(/Photo shown on site/i);
+      expect(screen.getByRole("button", { name: /Hide image1\.jpg/i })).toBeInTheDocument();
+    });
   });
 
-  it("moves images with up/down arrow buttons", async () => {
-    mockByUrl();
+  it("should hide a photo when HIDE is clicked", async () => {
+    mockByUrl(mockImages, [
+      { id: "image1.jpg", url: mockImages[0].url },
+      { id: "image2.jpg", url: mockImages[1].url },
+    ]);
+
+    render(<AdminPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Hide image1\.jpg/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Hide image1\.jpg/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent(/Photo hidden/i);
+    });
+  });
+
+  it("moves on-site images with up/down arrow buttons", async () => {
+    mockByUrl(mockImages, [
+      { id: "image1.jpg", url: mockImages[0].url },
+      { id: "image2.jpg", url: mockImages[1].url },
+    ]);
 
     render(<AdminPage />);
 
@@ -588,16 +624,13 @@ describe("AdminPage", () => {
       expect(screen.getAllByText("↓").length).toBeGreaterThan(0);
     });
 
-    // Move first image down (reorders state)
     fireEvent.click(screen.getAllByText("↓")[0]);
-    // Move second image up
     await waitFor(() => {
-      expect(screen.getAllByText("↑").length).toBeGreaterThan(1);
+      expect(screen.getByRole("status")).toHaveTextContent(/Photo order saved/i);
     });
-    fireEvent.click(screen.getAllByText("↑")[1]);
   });
 
-  it("should save image selection when checkbox changes", async () => {
+  it("should save when a photo is shown", async () => {
     mockByUrl(mockImages, []);
 
     render(<AdminPage />);
@@ -606,7 +639,7 @@ describe("AdminPage", () => {
       expect(screen.getByText("image1.jpg")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getAllByRole("checkbox")[0]);
+    fireEvent.click(screen.getByRole("button", { name: /Show image1\.jpg/i }));
 
     await waitFor(() => {
       const putCall = (global.fetch as jest.Mock).mock.calls.find(
@@ -653,11 +686,33 @@ describe("AdminPage", () => {
       expect(screen.getByText("image1.jpg")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getAllByRole("checkbox")[0]);
+    fireEvent.click(screen.getByRole("button", { name: /Show image1\.jpg/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/Failed to fetch site data/i);
     });
+  });
+
+  it("should hide the security panel when empty", async () => {
+    mockByUrl();
+    render(<AdminPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/\[ PHOTOS \]/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/\[ SECURITY \]/i)).not.toBeInTheDocument();
+  });
+
+  it("should render jump links for Photos Audio Links About", async () => {
+    mockByUrl();
+    render(<AdminPage />);
+    await waitFor(() => {
+      expect(screen.getByRole("navigation", { name: /Admin sections/i })).toBeInTheDocument();
+    });
+    const nav = screen.getByRole("navigation", { name: /Admin sections/i });
+    expect(nav.querySelector('a[href="#photos"]')).toBeTruthy();
+    expect(nav.querySelector('a[href="#audio"]')).toBeTruthy();
+    expect(nav.querySelector('a[href="#links"]')).toBeTruthy();
+    expect(nav.querySelector('a[href="#about"]')).toBeTruthy();
   });
 
   it("shows error when about autosave PUT response is not ok", async () => {
@@ -690,7 +745,7 @@ describe("AdminPage", () => {
     render(<AdminPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/UPDATE ABOUT TEXT/i)).toBeInTheDocument();
+      expect(screen.getByText(/\[ ABOUT \]/i)).toBeInTheDocument();
     });
 
     const textarea = screen.getByPlaceholderText(
@@ -726,7 +781,7 @@ describe("AdminPage", () => {
     const { container } = render(<AdminPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/UPLOAD IMAGES/i)).toBeInTheDocument();
+      expect(screen.getByText(/\[ PHOTOS \]/i)).toBeInTheDocument();
     });
 
     const fileInput = container.querySelector("input[data-image]") as HTMLInputElement;

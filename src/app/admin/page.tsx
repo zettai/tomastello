@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ImageUpload from "@/components/ImageUpload";
@@ -12,7 +12,7 @@ import { AdminSaveProvider, useAdminSave } from "@/components/AdminSave";
 import { ConfirmDeleteModal } from "@/components/OverlayModal";
 import Image from "next/image";
 import type { SecurityEvent, SystemLock } from "@/lib/securityEvents";
-import { homePageImageCheckboxLabel } from "@/lib/imageSelectionLabel";
+import { displayFileName } from "@/lib/displayFileName";
 
 interface User {
   id: string;
@@ -21,19 +21,32 @@ interface User {
   lastLogin?: string;
 }
 
-interface ImageMetadata {
+interface ImageListItem {
   key: string;
   url: string;
   size: number;
   lastModified: string;
 }
 
+interface SitePhoto {
+  id: string;
+  url: string;
+}
+
 const ABOUT_DEBOUNCE_MS = 1500;
+
+const SECTION_JUMPS = [
+  { id: "photos", label: "Photos" },
+  { id: "audio", label: "Audio" },
+  { id: "links", label: "Links" },
+  { id: "about", label: "About" },
+] as const;
 
 function SecurityPanel() {
   const [lock, setLock] = useState<SystemLock | null>(null);
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [unlocking, setUnlocking] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const fetchSecurity = useCallback(async () => {
     try {
@@ -45,6 +58,8 @@ function SecurityPanel() {
       }
     } catch {
       // Ignore
+    } finally {
+      setLoaded(true);
     }
   }, []);
 
@@ -66,74 +81,83 @@ function SecurityPanel() {
     }
   };
 
+  const hasContent = Boolean(lock?.locked) || events.length > 0;
+  if (!loaded || !hasContent) {
+    return null;
+  }
+
   return (
-    <div className="space-y-4">
-      {lock?.locked && (
-        <div className="admin-inset p-3 space-y-1" style={{ borderColor: "amber" }}>
-          <p className="admin-text font-bold">! SYSTEM UPLOAD LOCK ACTIVE</p>
-          {lock.lockedAt && (
-            <p className="admin-text-secondary text-xs">
-              Locked at: {new Date(lock.lockedAt).toLocaleString()}
-            </p>
-          )}
-          {lock.reason && (
-            <p className="admin-text-secondary text-xs">Reason: {lock.reason}</p>
-          )}
-          {lock.bytesIn24h !== undefined && (
-            <p className="admin-text-secondary text-xs">
-              Bytes in 24h: {(lock.bytesIn24h / (1024 * 1024)).toFixed(1)} MB
-            </p>
-          )}
-          <button
-            onClick={handleUnlock}
-            disabled={unlocking}
-            className="admin-button mt-2 text-xs"
-          >
-            {unlocking ? "[ UNLOCKING... ]" : "[ UNLOCK SYSTEM ]"}
-          </button>
-        </div>
-      )}
-
-      {events.length > 0 && (
-        <div className="space-y-1">
-          <p className="admin-text text-sm font-bold">Recent Security Events</p>
-          {events.map((ev) => (
-            <div
-              key={`${ev.type}-${ev.ts}`}
-              className="admin-inset p-2 text-xs flex flex-wrap items-baseline gap-x-2 gap-y-0.5 min-w-0"
+    <details className="admin-window">
+      <summary className="admin-title-bar cursor-pointer list-none">
+        [ SECURITY ]
+      </summary>
+      <div className="p-4 m-2 space-y-4">
+        {lock?.locked && (
+          <div className="admin-inset p-3 space-y-1" style={{ borderColor: "amber" }}>
+            <p className="admin-text font-bold">! SYSTEM UPLOAD LOCK ACTIVE</p>
+            {lock.lockedAt && (
+              <p className="admin-text-secondary text-xs">
+                Locked at: {new Date(lock.lockedAt).toLocaleString()}
+              </p>
+            )}
+            {lock.reason && (
+              <p className="admin-text-secondary text-xs">Reason: {lock.reason}</p>
+            )}
+            {lock.bytesIn24h !== undefined && (
+              <p className="admin-text-secondary text-xs">
+                Bytes in 24h: {(lock.bytesIn24h / (1024 * 1024)).toFixed(1)} MB
+              </p>
+            )}
+            <button
+              onClick={handleUnlock}
+              disabled={unlocking}
+              className="admin-button mt-2 text-xs"
             >
-              <span className="admin-text font-mono shrink-0">{ev.type}</span>
-              <span className="admin-text-secondary break-all">
-                {new Date(ev.ts).toLocaleString()}
-              </span>
-              {ev.ip && (
-                <span className="admin-text-secondary break-all">IP: {ev.ip}</span>
-              )}
-              {ev.userEmail && (
-                <span className="admin-text-secondary break-all">{ev.userEmail}</span>
-              )}
-              {ev.detail && (
-                <span className="admin-text-secondary break-all">({ev.detail})</span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+              {unlocking ? "[ UNLOCKING... ]" : "[ UNLOCK SYSTEM ]"}
+            </button>
+          </div>
+        )}
 
-      {!lock?.locked && events.length === 0 && (
-        <p className="admin-text-secondary text-xs">No security events.</p>
-      )}
-    </div>
+        {events.length > 0 && (
+          <div className="space-y-1">
+            <p className="admin-text text-sm font-bold">Recent Security Events</p>
+            {events.map((ev) => (
+              <div
+                key={`${ev.type}-${ev.ts}`}
+                className="admin-inset p-2 text-xs flex flex-wrap items-baseline gap-x-2 gap-y-0.5 min-w-0"
+              >
+                <span className="admin-text font-mono shrink-0">{ev.type}</span>
+                <span className="admin-text-secondary break-all">
+                  {new Date(ev.ts).toLocaleString()}
+                </span>
+                {ev.ip && (
+                  <span className="admin-text-secondary break-all">IP: {ev.ip}</span>
+                )}
+                {ev.userEmail && (
+                  <span className="admin-text-secondary break-all">{ev.userEmail}</span>
+                )}
+                {ev.detail && (
+                  <span className="admin-text-secondary break-all">({ev.detail})</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
 
-function photosFromSelection(
-  images: ImageMetadata[],
-  selected: Set<string>
-): { id: string; url: string }[] {
-  return images
-    .filter((img) => selected.has(img.key))
-    .map((img) => ({ id: img.key, url: img.url }));
+function toSitePhotos(
+  orderedKeys: string[],
+  byKey: Map<string, ImageListItem>
+): SitePhoto[] {
+  return orderedKeys
+    .map((key) => {
+      const img = byKey.get(key);
+      return img ? { id: img.key, url: img.url } : null;
+    })
+    .filter((p): p is SitePhoto => p !== null);
 }
 
 function ImageManager({
@@ -143,62 +167,63 @@ function ImageManager({
 }>) {
   const { showSuccess, showError } = useAdminToast();
   const { saveSite } = useAdminSave();
-  const [images, setImages] = useState<ImageMetadata[]>([]);
+  const [images, setImages] = useState<ImageListItem[]>([]);
+  const [onSiteKeys, setOnSiteKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [isReordering, setIsReordering] = useState(false);
   const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null);
   const deleteTriggerRef = useRef<HTMLElement | null>(null);
 
+  const byKey = useMemo(
+    () => new Map(images.map((img) => [img.key, img])),
+    [images]
+  );
+
+  const onSiteImages = useMemo(
+    () => onSiteKeys.map((k) => byKey.get(k)).filter((img): img is ImageListItem => Boolean(img)),
+    [onSiteKeys, byKey]
+  );
+
+  const notShownImages = useMemo(() => {
+    const onSite = new Set(onSiteKeys);
+    return images.filter((img) => !onSite.has(img.key));
+  }, [images, onSiteKeys]);
+
   useEffect(() => {
-    fetchImages();
-    fetchSavedPhotos();
+    const load = async () => {
+      try {
+        const [listRes, siteRes] = await Promise.all([
+          fetch("/api/images/list"),
+          fetch("/api/site"),
+        ]);
+        const listJson = await listRes.json();
+        const siteJson = await siteRes.json();
+        const list: ImageListItem[] = listJson.success ? listJson.images : [];
+        setImages(list);
+        const photos: SitePhoto[] = Array.isArray(siteJson.photos) ? siteJson.photos : [];
+        const known = new Set(list.map((i) => i.key));
+        setOnSiteKeys(photos.map((p) => p.id).filter((id) => known.has(id)));
+      } catch (error) {
+        console.error("Failed to fetch images:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    void load();
   }, [refreshTrigger]);
 
-  const fetchSavedPhotos = async () => {
-    try {
-      const response = await fetch("/api/site");
-      const data = await response.json();
-      if (data.photos) {
-        const savedPhotoKeys = new Set(
-          data.photos.map((photo: { id: string }) => photo.id) as string[]
-        );
-        setSelectedImages(savedPhotoKeys);
-      }
-    } catch (error) {
-      console.error("Failed to fetch saved photos:", error);
-    }
-  };
-
-  const fetchImages = async () => {
-    try {
-      const response = await fetch("/api/images/list");
-      const result = await response.json();
-      if (result.success) {
-        setImages(result.images);
-      }
-    } catch (error) {
-      console.error("Failed to fetch images:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const persistSelection = (
-    nextSelected: Set<string>,
-    nextImages: ImageMetadata[],
-    previousSelected: Set<string>,
-    previousImages: ImageMetadata[],
+  const persistPhotos = (
+    nextKeys: string[],
+    previousKeys: string[],
     successMessage: string
   ) => {
-    const photos = photosFromSelection(nextImages, nextSelected);
-    const previousPhotos = photosFromSelection(previousImages, previousSelected);
+    const photos = toSitePhotos(nextKeys, byKey);
+    const previousPhotos = toSitePhotos(previousKeys, byKey);
     saveSite({
       mutate: (data) => ({ ...data, photos }),
       successMessage,
       undo: () => {
-        setSelectedImages(new Set(previousSelected));
-        setImages(previousImages);
+        setOnSiteKeys(previousKeys);
         saveSite({
           mutate: (data) => ({ ...data, photos: previousPhotos }),
           successMessage: "Photos restored",
@@ -224,11 +249,7 @@ function ImageManager({
       const result = await response.json();
       if (result.success) {
         setImages((prev) => prev.filter((img) => img.key !== key));
-        setSelectedImages((prev) => {
-          const next = new Set(prev);
-          next.delete(key);
-          return next;
-        });
+        setOnSiteKeys((prev) => prev.filter((k) => k !== key));
         showSuccess("Image deleted");
       } else {
         showError(result.error || "Failed to delete image");
@@ -240,53 +261,121 @@ function ImageManager({
   };
 
   const pendingName = pendingDeleteKey
-    ? pendingDeleteKey.split("/").pop() || pendingDeleteKey
+    ? displayFileName(pendingDeleteKey)
     : "";
 
-  const moveImage = (index: number, direction: "up" | "down") => {
+  const moveOnSite = (index: number, direction: "up" | "down") => {
     if (isReordering) return;
     const newIndex = direction === "up" ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= images.length) return;
+    if (newIndex < 0 || newIndex >= onSiteKeys.length) return;
 
     setIsReordering(true);
-    const previousImages = images;
-    const previousSelected = new Set(selectedImages);
-    const newImages = [...images];
-    [newImages[index], newImages[newIndex]] = [
-      newImages[newIndex],
-      newImages[index],
-    ];
-    setImages(newImages);
-    persistSelection(
-      selectedImages,
-      newImages,
-      previousSelected,
-      previousImages,
-      "Photo order saved"
-    );
+    const previous = onSiteKeys;
+    const next = [...onSiteKeys];
+    [next[index], next[newIndex]] = [next[newIndex], next[index]];
+    setOnSiteKeys(next);
+    persistPhotos(next, previous, "Photo order saved");
     requestAnimationFrame(() => {
       setIsReordering(false);
     });
   };
 
-  const toggleSelection = (key: string, checked: boolean) => {
-    const previousSelected = new Set(selectedImages);
-    const previousImages = images;
-    const next = new Set(selectedImages);
-    if (checked) {
-      next.add(key);
-    } else {
-      next.delete(key);
-    }
-    setSelectedImages(next);
-    persistSelection(
-      next,
-      images,
-      previousSelected,
-      previousImages,
-      checked ? "Photo shown on site" : "Photo hidden"
-    );
+  const hidePhoto = (key: string) => {
+    if (!onSiteKeys.includes(key)) return;
+    const previous = onSiteKeys;
+    const next = onSiteKeys.filter((k) => k !== key);
+    setOnSiteKeys(next);
+    persistPhotos(next, previous, "Photo hidden");
   };
+
+  const showPhoto = (key: string) => {
+    if (onSiteKeys.includes(key)) return;
+    const previous = onSiteKeys;
+    const next = [...onSiteKeys, key];
+    setOnSiteKeys(next);
+    persistPhotos(next, previous, "Photo shown on site");
+  };
+
+  const renderRow = (
+    image: ImageListItem,
+    group: "on-site" | "not-shown",
+    index: number,
+    groupLength: number
+  ) => (
+    <div
+      key={image.key}
+      className="admin-inset flex items-center space-x-4 p-3"
+      data-photo-group={group}
+    >
+      <Image
+        src={image.url}
+        alt={displayFileName(image.key)}
+        width={64}
+        height={64}
+        className="object-cover h-auto"
+        quality={50}
+        loading="lazy"
+        sizes="64px"
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium admin-text break-words line-clamp-2">
+          {displayFileName(image.key)}
+        </p>
+        <p className="text-xs admin-text-secondary mt-1">
+          {new Date(image.lastModified).toLocaleDateString()}
+        </p>
+      </div>
+      <div className="flex space-x-1">
+        {group === "on-site" && (
+          <>
+            <button
+              type="button"
+              onClick={() => moveOnSite(index, "up")}
+              disabled={index === 0}
+              className="admin-button px-2 py-1 text-xs disabled:opacity-50"
+              aria-label={`Move ${displayFileName(image.key)} up`}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => moveOnSite(index, "down")}
+              disabled={index === groupLength - 1}
+              className="admin-button px-2 py-1 text-xs disabled:opacity-50"
+              aria-label={`Move ${displayFileName(image.key)} down`}
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              onClick={() => hidePhoto(image.key)}
+              className="admin-button px-2 py-1 text-xs"
+              aria-label={`Hide ${displayFileName(image.key)} from site`}
+            >
+              HIDE
+            </button>
+          </>
+        )}
+        {group === "not-shown" && (
+          <button
+            type="button"
+            onClick={() => showPhoto(image.key)}
+            className="admin-button px-2 py-1 text-xs"
+            aria-label={`Show ${displayFileName(image.key)} on site`}
+          >
+            SHOW
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(e) => requestDelete(image.key, e.currentTarget)}
+          className="admin-button px-2 py-1 text-xs"
+        >
+          DEL
+        </button>
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -297,69 +386,41 @@ function ImageManager({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {images.length === 0 && (
         <div className="p-4 text-center admin-text">[ NO IMAGES ]</div>
       )}
-      <div className="grid grid-cols-1 gap-2">
-        {images.map((image, index) => (
-          <div
-            key={image.key}
-            className="admin-inset flex items-center space-x-4 p-3"
-          >
-            <input
-              type="checkbox"
-              aria-label={homePageImageCheckboxLabel(image.key)}
-              checked={selectedImages.has(image.key)}
-              onChange={(e) => {
-                toggleSelection(image.key, e.target.checked);
-              }}
-              className="h-4 w-4"
-            />
-            <Image
-              src={image.url}
-              alt={image.key}
-              width={64}
-              height={64}
-              className="object-cover h-auto"
-              quality={50}
-              loading="lazy"
-              sizes="64px"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium admin-text break-words line-clamp-2">
-                {image.key.split("/").pop()}
-              </p>
-              <p className="text-xs admin-text-secondary mt-1">
-                {new Date(image.lastModified).toLocaleDateString()}
-              </p>
-            </div>
-            <div className="flex space-x-1">
-              <button
-                onClick={() => moveImage(index, "up")}
-                disabled={index === 0}
-                className="admin-button px-2 py-1 text-xs disabled:opacity-50"
-              >
-                ↑
-              </button>
-              <button
-                onClick={() => moveImage(index, "down")}
-                disabled={index === images.length - 1}
-                className="admin-button px-2 py-1 text-xs disabled:opacity-50"
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                onClick={(e) => requestDelete(image.key, e.currentTarget)}
-                className="admin-button px-2 py-1 text-xs"
-              >
-                DEL
-              </button>
-            </div>
+
+      <section aria-labelledby="on-site-heading" className="space-y-2">
+        <h3 id="on-site-heading" className="admin-text font-bold">
+          On the site ({onSiteImages.length})
+        </h3>
+        {onSiteImages.length === 0 ? (
+          <p className="admin-text-secondary text-sm">No photos on the site.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-2">
+            {onSiteImages.map((image, index) =>
+              renderRow(image, "on-site", index, onSiteImages.length)
+            )}
           </div>
-        ))}
-      </div>
+        )}
+      </section>
+
+      <section aria-labelledby="not-shown-heading" className="space-y-2">
+        <h3 id="not-shown-heading" className="admin-text font-bold">
+          Not shown ({notShownImages.length})
+        </h3>
+        {notShownImages.length === 0 ? (
+          <p className="admin-text-secondary text-sm">All photos are on the site.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-2">
+            {notShownImages.map((image, index) =>
+              renderRow(image, "not-shown", index, notShownImages.length)
+            )}
+          </div>
+        )}
+      </section>
+
       <ConfirmDeleteModal
         open={pendingDeleteKey !== null}
         itemName={pendingName}
@@ -518,15 +579,47 @@ function AdminPageInner() {
           </div>
         </div>
 
-        <div className="admin-window">
-          <div className="admin-title-bar">[ SECURITY ]</div>
-          <div className="p-4 m-2">
-            <SecurityPanel />
-          </div>
-        </div>
+        <nav
+          aria-label="Admin sections"
+          className="admin-window"
+        >
+          <div className="admin-title-bar">[ JUMP ]</div>
+          <ul className="p-3 m-2 flex flex-wrap gap-2 list-none">
+            {SECTION_JUMPS.map((section) => (
+              <li key={section.id}>
+                <a href={`#${section.id}`} className="admin-button text-sm">
+                  {section.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
-        <div className="admin-window">
-          <div className="admin-title-bar">[ UPDATE ABOUT TEXT ]</div>
+        <section id="photos" className="admin-window scroll-mt-4">
+          <div className="admin-title-bar">[ PHOTOS ]</div>
+          <div className="p-4 m-2 space-y-6">
+            <ImageUpload onUploadSuccess={handleUploadSuccess} adminMode />
+            <ImageManager refreshTrigger={refreshTrigger} />
+          </div>
+        </section>
+
+        <section id="audio" className="admin-window scroll-mt-4">
+          <div className="admin-title-bar">[ AUDIO ]</div>
+          <div className="p-4 m-2 space-y-6">
+            <AudioUpload onUploadSuccess={handleUploadSuccess} adminMode />
+            <AudioManager refreshTrigger={refreshTrigger} />
+          </div>
+        </section>
+
+        <section id="links" className="admin-window scroll-mt-4">
+          <div className="admin-title-bar">[ LINKS ]</div>
+          <div className="p-4 m-2">
+            <LinkManager refreshTrigger={refreshTrigger} />
+          </div>
+        </section>
+
+        <section id="about" className="admin-window scroll-mt-4">
+          <div className="admin-title-bar">[ ABOUT ]</div>
           <div className="p-4 m-2 space-y-3">
             <textarea
               value={aboutContent}
@@ -543,42 +636,9 @@ function AdminPageInner() {
               </p>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="admin-window">
-          <div className="admin-title-bar">[ MANAGE LINKS ]</div>
-          <div className="p-4 m-2">
-            <LinkManager refreshTrigger={refreshTrigger} />
-          </div>
-        </div>
-
-        <div className="admin-window">
-          <div className="admin-title-bar">[ UPLOAD IMAGES ]</div>
-          <div className="p-4 m-2">
-            <ImageUpload onUploadSuccess={handleUploadSuccess} adminMode />
-          </div>
-        </div>
-
-        <div className="admin-window">
-          <div className="admin-title-bar">[ IMAGE MANAGER ]</div>
-          <div className="p-4 m-2">
-            <ImageManager refreshTrigger={refreshTrigger} />
-          </div>
-        </div>
-
-        <div className="admin-window">
-          <div className="admin-title-bar">[ UPLOAD AUDIO ]</div>
-          <div className="p-4 m-2">
-            <AudioUpload onUploadSuccess={handleUploadSuccess} adminMode />
-          </div>
-        </div>
-
-        <div className="admin-window">
-          <div className="admin-title-bar">[ AUDIO MANAGER ]</div>
-          <div className="p-4 m-2">
-            <AudioManager refreshTrigger={refreshTrigger} />
-          </div>
-        </div>
+        <SecurityPanel />
       </main>
     </div>
   );
