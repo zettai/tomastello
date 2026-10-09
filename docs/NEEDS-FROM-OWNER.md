@@ -9,11 +9,12 @@ pull-deploy route was not taken, and those branches are gone.
 
 ## Open
 
-- [ ] **Dependency advisories.** `npm audit --omit=dev` reports 39 (1 critical, 11 high,
-  27 moderate). The critical one is `fast-xml-parser`, pulled in by the AWS SDK; it parses
-  responses from the bucket, so exposure is low, but it should be updated. Most of the rest
-  clear with `npm audit fix` (no major upgrades).
-- [ ] **Confirm the bucket honours conditional writes** (`If-Match` / `If-None-Match` on PUT).
-  Save conflicts (409) and the admin save queue depend on it. If the bucket ignores them, the
-  store logs "Bucket refused conditional writes; concurrent saves are no longer protected" and
-  falls back to unprotected writes. Check: watch the function logs during one admin save.
+- [ ] **Dependency advisories.** `npm audit --omit=dev` was 39 and is 7 after `npm audit fix` and a
+  `fast-xml-parser` override (critical cleared). The rest need major upgrades: `postcss` (Next 16),
+  `sharp` (via Next), `sprintf-js` (swagger-ui).
+
+## Resolved
+
+- **Conditional writes (2026-10-09).** The bucket ignores `If-Match` on PUT and Netlify strips
+  the browser's `If-Match`, so the store pre-checks the ETag itself and the site version travels
+  in `X-Site-ETag` / `X-Site-If-Match`. Verified on production: stale version → 409.
