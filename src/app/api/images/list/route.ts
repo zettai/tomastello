@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
 import { verifyToken } from "@/lib/auth";
+import { publicObjectUrl } from "@/lib/uploads";
 
 // Admin only: lists every object, including images that aren't published.
 export async function GET(request: NextRequest) {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
     const images =
       response.Contents?.map((object) => ({
         key: object.Key,
-        url: `https://${SCALEWAY_BUCKET}.s3.${process.env.SCW_DEFAULT_REGION}.scw.cloud/${object.Key}`,
+        url: publicObjectUrl(object.Key!),
         size: object.Size,
         lastModified: object.LastModified,
       })) || [];

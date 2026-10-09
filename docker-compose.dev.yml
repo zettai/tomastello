@@ -1,0 +1,7 @@
+# Local S3 mock (moto). In-memory: run scripts/dev-s3-seed.mjs after every start.
+services:
+  moto:
+    image: motoserver/moto:5.0.28
+    ports:
+      - "19000:5000"
+    command: ["moto_server", "-H", "0.0.0.0", "-p", "5000"]

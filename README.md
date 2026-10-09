@@ -75,7 +75,10 @@ gets full admin access.
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript check, tests included |
 | `npm run a11y` | pa11y-ci WCAG 2.1 AA scan (dev server must be running) |
+| `npm run e2e:local-s3` | Playwright upload flow against local moto S3 mock |
 | `npm run sonar` | SonarQube scan + quality gate (needs `SONAR_TOKEN` / `SONAR_HOST_URL`) |
+
+Local S3 mock (no Scaleway): [docs/LOCAL-S3-DEV.md](docs/LOCAL-S3-DEV.md).
 
 All settings are listed, names only, in [`.env.production.example`](.env.production.example).
 

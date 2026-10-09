@@ -5,6 +5,32 @@ import type { NextConfig } from "next";
 const PAGE_CACHE_TAG = "tt-pages";
 const PAGE_CDN_SECONDS = 3600;
 
+type ImageRemotePattern = {
+  protocol: "http" | "https";
+  hostname: string;
+  port?: string;
+  pathname: string;
+};
+
+function publicBaseRemotePattern(): ImageRemotePattern | null {
+  const raw = process.env.SCALEWAY_PUBLIC_BASE_URL?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return {
+      protocol: url.protocol.replace(":", "") as "http" | "https",
+      hostname: url.hostname,
+      port: url.port,
+      pathname: "/**",
+    };
+  } catch {
+    return null;
+  }
+}
+
+const extraImagePattern = publicBaseRemotePattern();
+
 const nextConfig: NextConfig = {
   // Netlify's Next.js runtime packages the app itself; "standalone" is only for the Docker
   // image (self-hosted). Netlify sets NETLIFY=true during its builds.
@@ -29,6 +55,7 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
+      ...(extraImagePattern ? [extraImagePattern] : []),
     ],
   },
   async headers() {

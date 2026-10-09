@@ -61,3 +61,14 @@ Open / logged:
 ## Next
 
 Nothing: all four branches are code complete. Waiting on the owner (see the two files above).
+
+---
+
+## Story 1: Local S3 mock (moto)
+
+- **Status:** code + `e2e:local-s3` green; owner sign-off pending.
+- **Backend:** moto (spike passed CORS/ACL). RustFS not pursued for Story 1.
+- **Env templates:** `.env.development.local.example` not committed — LLNZ guard blocks `.env*`
+  writes; full override block is in `docs/LOCAL-S3-DEV.md` (overrides production `.env.local`).
+- **Deliverables:** `docker-compose.dev.yml`, `scripts/dev-s3-*`, `SCALEWAY_PUBLIC_BASE_URL` /
+  `publicObjectUrl`, `npm run e2e:local-s3`, `.gitignore` for `.data-dev` / `.data-local-s3`.

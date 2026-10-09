@@ -98,5 +98,10 @@ export function isUploadKey(prefix: UploadPrefix, key: unknown): key is string {
 
 /** Public URL of an object (the bucket serves uploads publicly). */
 export function publicObjectUrl(key: string, env: Env = process.env): string {
+  const base = env.SCALEWAY_PUBLIC_BASE_URL?.trim();
+  if (base) {
+    const normalized = base.replace(/\/$/, "");
+    return `${normalized}/${key}`;
+  }
   return `https://${SCALEWAY_BUCKET}.s3.${env.SCW_DEFAULT_REGION}.scw.cloud/${key}`;
 }

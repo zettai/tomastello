@@ -4,6 +4,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
 import { addImageMetadata } from "@/lib/metadata";
 import { verifyToken } from "@/lib/auth";
+import { publicObjectUrl } from "@/lib/uploads";
 
 /**
  * @swagger
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
     await scalewayClient.send(command);
 
     // Generate public URL
-    const publicUrl = `https://${SCALEWAY_BUCKET}.s3.${process.env.SCW_DEFAULT_REGION}.scw.cloud/${fileName}`;
+    const publicUrl = publicObjectUrl(fileName);
 
     // Save metadata
     const metadata = await addImageMetadata({

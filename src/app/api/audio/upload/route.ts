@@ -14,6 +14,7 @@ import {
   buildObjectKey,
   getExtension,
   MAX_AUDIO_SIZE,
+  publicObjectUrl,
 } from "@/lib/uploads";
 
 const log = createLogger("audio/upload");
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
 
     await scalewayClient.send(command);
 
-    const publicUrl = `https://${SCALEWAY_BUCKET}.s3.${process.env.SCW_DEFAULT_REGION}.scw.cloud/${fileName}`;
+    const publicUrl = publicObjectUrl(fileName);
 
     const metadata = await addAudioMetadata({
       fileName,

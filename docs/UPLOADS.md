@@ -63,6 +63,12 @@ Apply with any S3 client pointed at the bucket's endpoint, for example
 `aws s3api put-bucket-cors --bucket <bucket> --cors-configuration file://cors.json --endpoint-url <endpoint>`.
 Keep `GET` for public reads as it is today; these rules only add the upload path.
 
+## Local dev mock
+
+See [LOCAL-S3-DEV.md](./LOCAL-S3-DEV.md). Set `SCALEWAY_PUBLIC_BASE_URL` to the mock's path-style
+base (e.g. `http://127.0.0.1:19000/dev-bucket`) so pages load media from the mock, not `*.scw.cloud`.
+When unset, public URLs keep the production `https://<bucket>.s3.<region>.scw.cloud/` form.
+
 ## Chunk size
 
 `UPLOAD_CHUNK_SIZE_MB` (default 5, clamped to 5–64) is read by the server at runtime and sent to

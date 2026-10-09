@@ -96,4 +96,13 @@ describe("uploads", () => {
       "https://test-bucket.s3.nl-ams.scw.cloud/images/1-a.jpg"
     );
   });
+
+  it("should use SCALEWAY_PUBLIC_BASE_URL when set", () => {
+    expect(
+      publicObjectUrl("images/1-a.jpg", {
+        SCALEWAY_PUBLIC_BASE_URL: "http://127.0.0.1:19000/dev-bucket",
+        SCW_DEFAULT_REGION: "nl-ams",
+      }),
+    ).toBe("http://127.0.0.1:19000/dev-bucket/images/1-a.jpg");
+  });
 });

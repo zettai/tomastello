@@ -16,6 +16,8 @@
 /playwright-report
 .data-e2e
 .data
+.data-dev
+.data-local-s3
 
 # next.js
 /.next/
