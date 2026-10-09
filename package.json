@@ -19,8 +19,8 @@
     "e2e:local-s3": "playwright test -c playwright.local-s3.config.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.817.0",
-    "@aws-sdk/s3-request-presigner": "^3.817.0",
+    "@aws-sdk/client-s3": "3.932.0",
+    "@aws-sdk/s3-request-presigner": "3.932.0",
     "@netlify/functions": "^6.0.2",
     "jose": "^6.0.11",
     "next": "15.5.27",
@@ -57,5 +57,8 @@
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
+  },
+  "overrides": {
+    "fast-xml-parser": "5.11.2"
   }
 }
