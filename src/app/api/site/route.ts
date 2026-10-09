@@ -1,10 +1,11 @@
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { purgePublicPages } from "@/lib/cdn";
-import { getSiteData, saveSiteData } from "@/lib/site";
+import { readSiteData, saveSiteData } from "@/lib/site";
 import { verifyToken } from "@/lib/auth";
 import { toPublicLink } from "@/lib/publicView";
-import { getLinkMetadata, saveLinkMetadata } from "@/lib/links";
+import { readLinkMetadata, saveLinkMetadata } from "@/lib/links";
+import { conflictResponse } from "@/lib/storeErrors";
 
 // Helper function to validate about content
 function validateAboutContent(about: unknown): string | null {
@@ -55,16 +56,26 @@ function validateLinks(links: unknown): string | null {
 // Link createdBy is an admin email: only admins see it (the admin page PUTs links back)
 export async function GET(request: NextRequest) {
   try {
-    const data = await getSiteData();
-    const links = await getLinkMetadata();
+    const site = await readSiteData();
+    const linksDoc = await readLinkMetadata();
     const token = request.cookies.get("auth-token")?.value;
+    const headers = new Headers();
+    if (site.etag) headers.set("ETag", site.etag);
+    if (linksDoc.etag) headers.set("X-Links-ETag", linksDoc.etag);
+
     if (token && (await verifyToken(token))) {
-      return NextResponse.json({ ...data, links });
+      return NextResponse.json(
+        { ...site.data, links: linksDoc.data },
+        { headers }
+      );
     }
-    return NextResponse.json({
-      ...data,
-      links: links.map(toPublicLink),
-    });
+    return NextResponse.json(
+      {
+        ...site.data,
+        links: linksDoc.data.map(toPublicLink),
+      },
+      { headers }
+    );
   } catch (error) {
     console.error("Get site data error:", error);
     return NextResponse.json(
@@ -108,13 +119,21 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: linksError }, { status: 400 });
     }
 
-    // Save site data (about and photos)
-    const { links, ...siteData } = data;
-    await saveSiteData(siteData);
+    // ETags from the GET that loaded the form (missing → write against current version)
+    const siteIfMatch = request.headers.get("If-Match");
+    const linksIfMatch = request.headers.get("X-Links-If-Match");
 
-    // Save links if provided
+    const { links, ...siteData } = data;
+    await saveSiteData(
+      siteData,
+      siteIfMatch === null ? undefined : siteIfMatch
+    );
+
     if (links) {
-      await saveLinkMetadata(links);
+      await saveLinkMetadata(
+        links,
+        linksIfMatch === null ? undefined : linksIfMatch
+      );
     }
 
     revalidatePath("/");
@@ -122,6 +141,8 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error) {
+    const conflict = conflictResponse(error);
+    if (conflict) return conflict;
     console.error("Update site data error:", error);
     return NextResponse.json(
       { error: "Failed to update site data" },

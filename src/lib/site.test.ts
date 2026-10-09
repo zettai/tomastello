@@ -2,8 +2,8 @@
  * @jest-environment node
  */
 import { MemoryObjectStore, setObjectStoreForTests } from "./store";
-import { replaceJson } from "./jsonStore";
-import { getSiteData, removeSitePhotoByKey, saveSiteData } from "./site";
+import { ConflictError, replaceJson } from "./jsonStore";
+import { getSiteData, readSiteData, removeSitePhotoByKey, saveSiteData } from "./site";
 import { SiteData } from "@/types/site";
 
 describe("site", () => {
@@ -38,6 +38,15 @@ describe("site", () => {
       const saved = await getSiteData();
       expect(saved.about).toEqual(mockSiteData.about);
       expect(saved.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it("should throw ConflictError when etag no longer matches", async () => {
+      await saveSiteData(mockSiteData);
+      const { etag } = await readSiteData();
+      await saveSiteData({ ...mockSiteData, about: { content: "other" } }, etag);
+      await expect(
+        saveSiteData({ ...mockSiteData, about: { content: "stale" } }, etag)
+      ).rejects.toBeInstanceOf(ConflictError);
     });
   });
 

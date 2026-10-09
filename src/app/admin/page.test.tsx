@@ -141,10 +141,21 @@ describe("AdminPage", () => {
       if (url === "/api/audio/list")
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, audio: [] }) });
       if (url === "/api/site" && opts?.method === "PUT")
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true }) });
+        return Promise.resolve({
+          ok: true,
+          headers: { get: () => null },
+          json: () => Promise.resolve({ success: true }),
+        });
       if (url === "/api/site")
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockCurrentData) });
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        return Promise.resolve({
+          ok: true,
+          headers: {
+            get: (n: string) =>
+              n === "ETag" ? '"s1"' : n === "X-Links-ETag" ? '"l1"' : null,
+          },
+          json: () => Promise.resolve(mockCurrentData),
+        });
+      return Promise.resolve({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({}) });
     });
 
     render(<AdminPage />);
@@ -171,6 +182,8 @@ describe("AdminPage", () => {
         photos: [],
         links: mockLinks,
       });
+      expect(putCall[1].headers["If-Match"]).toBe('"s1"');
+      expect(screen.getByRole("status")).toHaveTextContent(/About text saved/i);
     });
   });
 
@@ -387,29 +400,30 @@ describe("AdminPage", () => {
       if (url === "/api/audio/list")
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, audio: [] }) });
       if (url === "/api/site" && opts?.method === "PUT")
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        return Promise.resolve({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({}) });
       if (url === "/api/site") {
         siteCallCount++;
         if (siteCallCount <= 2)
-          return Promise.resolve({ ok: true, json: () => Promise.resolve({ about: { content: mockAboutContent }, photos: [], links: mockLinks }) });
+          return Promise.resolve({
+            ok: true,
+            headers: { get: () => null },
+            json: () => Promise.resolve({ about: { content: mockAboutContent }, photos: [], links: mockLinks }),
+          });
         return Promise.reject(new Error("fetch error"));
       }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      return Promise.resolve({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({}) });
     });
     render(<AdminPage />);
     await waitFor(() => {
       expect(screen.getByText(/MANAGE IMAGES/i)).toBeInTheDocument();
     });
-    const textarea = screen.getByPlaceholderText(/enter about content/i);
-    fireEvent.change(textarea, { target: { value: "Updated about content" } });
     const checkboxes = screen.queryAllByRole("checkbox");
     if (checkboxes[0]) {
       fireEvent.click(checkboxes[0]);
     }
-    const saveSelectionButton = screen.getByText(/SAVE SELECTION/i);
-    fireEvent.click(saveSelectionButton);
+    fireEvent.click(screen.getByText(/SAVE SELECTION/i));
     await waitFor(() => {
-      expect(screen.getByText(/fetch error/i)).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(/fetch error/i);
     });
   });
 
@@ -511,12 +525,22 @@ describe("AdminPage", () => {
   });
 
   // Helper: URL-based mock so concurrent fetches resolve correctly regardless of order
+  const siteRes = (body: unknown, ok = true, status = 200) => ({
+    ok,
+    status,
+    headers: {
+      get: (name: string) =>
+        name === "ETag" ? '"site-etag"' : name === "X-Links-ETag" ? '"links-etag"' : null,
+    },
+    json: () => Promise.resolve(body),
+  });
+
   const mockByUrl = (
     images = mockImages,
     photos: { id: string }[] = [],
     siteOverride?: Record<string, unknown>
   ) => {
-    const siteData = siteOverride ?? { about: { content: mockAboutContent }, photos };
+    const siteData = siteOverride ?? { about: { content: mockAboutContent }, photos, links: mockLinks };
     (global.fetch as jest.Mock).mockImplementation((url: string, opts?: RequestInit) => {
       if (url === "/api/auth/profile")
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ user: mockUser }) });
@@ -525,10 +549,10 @@ describe("AdminPage", () => {
       if (url === "/api/audio/list")
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, audio: [] }) });
       if (url === "/api/site" && opts?.method === "PUT")
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        return Promise.resolve(siteRes({}));
       if (url === "/api/site")
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(siteData) });
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        return Promise.resolve(siteRes(siteData));
+      return Promise.resolve({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({}) });
     });
   };
 
@@ -594,6 +618,8 @@ describe("AdminPage", () => {
         ([url, options]) => url === "/api/site" && options?.method === "PUT"
       );
       expect(putCall).toBeDefined();
+      expect(putCall[1].headers["If-Match"]).toBe('"site-etag"');
+      expect(screen.getByRole("status")).toHaveTextContent(/Photo selection saved/i);
     });
   });
 
@@ -607,15 +633,23 @@ describe("AdminPage", () => {
       if (url === "/api/audio/list")
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, audio: [] }) });
       if (url === "/api/site" && opts?.method === "PUT")
-        return Promise.resolve({ ok: true });
+        return Promise.resolve({ ok: true, headers: { get: () => null } });
       if (url === "/api/site") {
         siteCallCount++;
-        // First two calls (about + photos): ok. Next call (handleSave GET): fail
         if (siteCallCount <= 2)
-          return Promise.resolve({ ok: true, json: () => Promise.resolve({ about: { content: "" }, photos: [] }) });
-        return Promise.resolve({ ok: false });
+          return Promise.resolve({
+            ok: true,
+            headers: { get: () => null },
+            json: () => Promise.resolve({ about: { content: "" }, photos: [] }),
+          });
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          headers: { get: () => null },
+          json: () => Promise.resolve({ error: "Failed to fetch site data" }),
+        });
       }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      return Promise.resolve({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({}) });
     });
 
     render(<AdminPage />);
@@ -627,7 +661,7 @@ describe("AdminPage", () => {
     fireEvent.click(screen.getByText(/SAVE SELECTION/i));
 
     await waitFor(() => {
-      expect(screen.getByText(/Failed to fetch current site data/i)).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(/Failed to fetch site data/i);
     });
   });
 
@@ -640,10 +674,22 @@ describe("AdminPage", () => {
       if (url === "/api/audio/list")
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, audio: [] }) });
       if (url === "/api/site" && opts?.method === "PUT")
-        return Promise.resolve({ ok: false }); // PUT fails
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          headers: { get: () => null },
+          json: () =>
+            Promise.resolve({
+              error: "Someone else saved at the same moment. Reload and try again.",
+            }),
+        });
       if (url === "/api/site")
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ about: { content: "" }, photos: [] }) });
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        return Promise.resolve({
+          ok: true,
+          headers: { get: () => null },
+          json: () => Promise.resolve({ about: { content: "" }, photos: [] }),
+        });
+      return Promise.resolve({ ok: true, headers: { get: () => null }, json: () => Promise.resolve({}) });
     });
 
     render(<AdminPage />);
@@ -655,7 +701,7 @@ describe("AdminPage", () => {
     fireEvent.click(screen.getByText(/^\[ SAVE \]$/i));
 
     await waitFor(() => {
-      expect(screen.getByText(/Failed to update about content/i)).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(/Someone else saved/i);
     });
   });
 

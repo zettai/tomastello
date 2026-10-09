@@ -1,16 +1,29 @@
-import { readJson, replaceJson, updateJson } from "./jsonStore";
+import { readJson, updateJson, writeJson, type Versioned } from "./jsonStore";
 import { LinkMetadata } from "@/types/link";
 
 const METADATA_FILE_KEY = "metadata/links.json";
 
-// Get all link metadata
-export async function getLinkMetadata(): Promise<LinkMetadata[]> {
-  return (await readJson<LinkMetadata[]>(METADATA_FILE_KEY, [])).data;
+/** Reads links.json with its ETag. */
+export async function readLinkMetadata(): Promise<Versioned<LinkMetadata[]>> {
+  return readJson<LinkMetadata[]>(METADATA_FILE_KEY, []);
 }
 
-// Replace all link metadata (unconditional: last write wins; prefer the add/update/delete helpers)
-export async function saveLinkMetadata(links: LinkMetadata[]): Promise<void> {
-  await replaceJson(METADATA_FILE_KEY, links);
+// Get all link metadata
+export async function getLinkMetadata(): Promise<LinkMetadata[]> {
+  return (await readLinkMetadata()).data;
+}
+
+/**
+ * Conditionally replaces all links. Pass the ETag from the load that produced `links`;
+ * omit it to write against the current ETag. Throws ConflictError on a lost race.
+ */
+export async function saveLinkMetadata(
+  links: LinkMetadata[],
+  expectedEtag?: string | null
+): Promise<void> {
+  const etag =
+    expectedEtag === undefined ? (await readLinkMetadata()).etag : expectedEtag;
+  await writeJson(METADATA_FILE_KEY, links, etag);
 }
 
 // Add new link metadata

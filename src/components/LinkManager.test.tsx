@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, fireEvent, waitFor, screen } from "@testing-library/react";
 import { LinkManager } from "./LinkManager";
+import { renderWithToast } from "@/test/adminToast";
 
 // Mock console.error
 const originalConsoleError = console.error;
@@ -55,7 +56,7 @@ describe("LinkManager", () => {
       json: () => Promise.resolve({ success: true, links: [] }),
     });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
     expect(screen.getByText(/Loading links/i)).toBeInTheDocument();
   });
 
@@ -64,7 +65,7 @@ describe("LinkManager", () => {
       json: () => Promise.resolve({ success: true, links: mockLinks }),
     });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
@@ -77,7 +78,7 @@ describe("LinkManager", () => {
       json: () => Promise.resolve({ success: true, links: [] }),
     });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(
@@ -91,7 +92,7 @@ describe("LinkManager", () => {
       json: () => Promise.resolve({ success: true, links: [] }),
     });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("+ ADD LINK")).toBeInTheDocument();
@@ -103,7 +104,7 @@ describe("LinkManager", () => {
       json: () => Promise.resolve({ success: true, links: [] }),
     });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("+ ADD LINK")).toBeInTheDocument();
@@ -135,7 +136,7 @@ describe("LinkManager", () => {
         json: () => Promise.resolve({ success: true, link: newLink }),
       });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("+ ADD LINK")).toBeInTheDocument();
@@ -157,6 +158,7 @@ describe("LinkManager", () => {
 
     await waitFor(() => {
       expect(screen.getByText("New Link")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(/Link created/i);
     });
   });
 
@@ -170,7 +172,7 @@ describe("LinkManager", () => {
         json: () => Promise.resolve({ success: false, error: "Failed" }),
       });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("+ ADD LINK")).toBeInTheDocument();
@@ -188,7 +190,7 @@ describe("LinkManager", () => {
     fireEvent.click(screen.getByText("SAVE"));
 
     await waitFor(() => {
-      expect(global.alert).toHaveBeenCalledWith("Failed");
+      expect(screen.getByRole("alert")).toHaveTextContent("Failed");
     });
   });
 
@@ -200,7 +202,7 @@ describe("LinkManager", () => {
       })
       .mockRejectedValueOnce(new Error("Network error"));
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("+ ADD LINK")).toBeInTheDocument();
@@ -218,7 +220,7 @@ describe("LinkManager", () => {
     fireEvent.click(screen.getByText("SAVE"));
 
     await waitFor(() => {
-      expect(global.alert).toHaveBeenCalledWith("Failed to create link");
+      expect(screen.getByRole("alert")).toHaveTextContent("Failed to create link");
     });
   });
 
@@ -227,7 +229,7 @@ describe("LinkManager", () => {
       json: () => Promise.resolve({ success: true, links: mockLinks }),
     });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
@@ -256,7 +258,7 @@ describe("LinkManager", () => {
         json: () => Promise.resolve({ success: true, link: updatedLink }),
       });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
@@ -286,7 +288,7 @@ describe("LinkManager", () => {
         json: () => Promise.resolve({ success: false, error: "Update failed" }),
       });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
@@ -302,7 +304,7 @@ describe("LinkManager", () => {
     fireEvent.click(screen.getByText("SAVE"));
 
     await waitFor(() => {
-      expect(global.alert).toHaveBeenCalledWith("Update failed");
+      expect(screen.getByRole("alert")).toHaveTextContent("Update failed");
     });
   });
 
@@ -314,7 +316,7 @@ describe("LinkManager", () => {
       })
       .mockRejectedValueOnce(new Error("Network error"));
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
@@ -330,7 +332,7 @@ describe("LinkManager", () => {
     fireEvent.click(screen.getByText("SAVE"));
 
     await waitFor(() => {
-      expect(global.alert).toHaveBeenCalledWith("Failed to update link");
+      expect(screen.getByRole("alert")).toHaveTextContent("Failed to update link");
     });
   });
 
@@ -344,7 +346,7 @@ describe("LinkManager", () => {
         json: () => Promise.resolve({ success: true }),
       });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
@@ -368,7 +370,7 @@ describe("LinkManager", () => {
         json: () => Promise.resolve({ success: false, error: "Delete failed" }),
       });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
@@ -378,7 +380,7 @@ describe("LinkManager", () => {
     fireEvent.click(deleteButtons[0]);
 
     await waitFor(() => {
-      expect(global.alert).toHaveBeenCalledWith("Delete failed");
+      expect(screen.getByRole("alert")).toHaveTextContent("Delete failed");
     });
   });
 
@@ -390,7 +392,7 @@ describe("LinkManager", () => {
       })
       .mockRejectedValueOnce(new Error("Network error"));
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
@@ -400,7 +402,7 @@ describe("LinkManager", () => {
     fireEvent.click(deleteButtons[0]);
 
     await waitFor(() => {
-      expect(global.alert).toHaveBeenCalledWith("Failed to delete link");
+      expect(screen.getByRole("alert")).toHaveTextContent("Failed to delete link");
     });
   });
 
@@ -410,7 +412,7 @@ describe("LinkManager", () => {
       json: () => Promise.resolve({ success: true, links: mockLinks }),
     });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
@@ -429,7 +431,7 @@ describe("LinkManager", () => {
       json: () => Promise.resolve({ success: true, links: mockLinks }),
     });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 2")).toBeInTheDocument();
@@ -449,7 +451,7 @@ describe("LinkManager", () => {
       json: () => Promise.resolve({ success: true, links: mockLinks }),
     });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
@@ -471,13 +473,16 @@ describe("LinkManager", () => {
         json: () => Promise.resolve({ success: true, links: mockLinks }),
       })
       .mockResolvedValueOnce({
+        ok: true,
+        headers: { get: () => null },
         json: () => Promise.resolve({ about: {}, photos: [] }),
       })
       .mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve({ success: true }),
       });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("SAVE ORDER")).toBeInTheDocument();
@@ -486,7 +491,7 @@ describe("LinkManager", () => {
     fireEvent.click(screen.getByText("SAVE ORDER"));
 
     await waitFor(() => {
-      expect(global.alert).toHaveBeenCalledWith("Link order saved successfully!");
+      expect(screen.getByRole("status")).toHaveTextContent(/Link order saved/i);
     });
   });
 
@@ -497,13 +502,17 @@ describe("LinkManager", () => {
         json: () => Promise.resolve({ success: true, links: mockLinks }),
       })
       .mockResolvedValueOnce({
+        ok: true,
+        headers: { get: () => null },
         json: () => Promise.resolve({ about: {}, photos: [] }),
       })
       .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
         json: () => Promise.resolve({ error: "Save failed" }),
       });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("SAVE ORDER")).toBeInTheDocument();
@@ -512,7 +521,7 @@ describe("LinkManager", () => {
     fireEvent.click(screen.getByText("SAVE ORDER"));
 
     await waitFor(() => {
-      expect(global.alert).toHaveBeenCalledWith("Save failed");
+      expect(screen.getByRole("alert")).toHaveTextContent("Save failed");
     });
   });
 
@@ -523,11 +532,13 @@ describe("LinkManager", () => {
         json: () => Promise.resolve({ success: true, links: mockLinks }),
       })
       .mockResolvedValueOnce({
+        ok: true,
+        headers: { get: () => null },
         json: () => Promise.resolve({ about: {}, photos: [] }),
       })
       .mockRejectedValueOnce(new Error("Network error"));
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("SAVE ORDER")).toBeInTheDocument();
@@ -536,7 +547,7 @@ describe("LinkManager", () => {
     fireEvent.click(screen.getByText("SAVE ORDER"));
 
     await waitFor(() => {
-      expect(global.alert).toHaveBeenCalledWith("Failed to save order");
+      expect(screen.getByRole("alert")).toHaveTextContent("Failed to save order");
     });
   });
 
@@ -545,7 +556,7 @@ describe("LinkManager", () => {
       json: () => Promise.resolve({ success: true, links: [] }),
     });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("+ ADD LINK")).toBeInTheDocument();
@@ -563,7 +574,7 @@ describe("LinkManager", () => {
       json: () => Promise.resolve({ success: true, links: mockLinks }),
     });
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("Link 1")).toBeInTheDocument();
@@ -580,7 +591,7 @@ describe("LinkManager", () => {
   it("handles fetch error", async () => {
     global.fetch = jest.fn().mockRejectedValueOnce(new Error("Network error"));
 
-    render(<LinkManager refreshTrigger={0} />);
+    renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("+ ADD LINK")).toBeInTheDocument();
@@ -597,7 +608,7 @@ describe("LinkManager", () => {
         json: () => Promise.resolve({ success: true, links: mockLinks }),
       });
 
-    const { rerender } = render(<LinkManager refreshTrigger={0} />);
+    const { rerender } = renderWithToast(<LinkManager refreshTrigger={0} />);
 
     await waitFor(() => {
       expect(screen.getByText("+ ADD LINK")).toBeInTheDocument();

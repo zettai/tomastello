@@ -26,9 +26,8 @@ answers **409** ("Someone else saved at the same moment"). Covered: users (sign-
 login), links, photo and audio metadata, track order, security events, the upload lock, upload
 counters.
 
-Not covered, by design: `PUT /api/site` replaces the about text, photo selection and links with
-what the admin page sends. Two admins editing at once still means the last save wins; fixing
-that needs the page to send the version it loaded. One admin, as today, is unaffected.
+`PUT /api/site` is conditional too: GET returns `ETag` / `X-Links-ETag`, and the admin page
+sends them back as `If-Match` / `X-Links-If-Match`. A stale save answers **409**.
 
 If the bucket doesn't support conditional writes it answers `NotImplemented`; the store then
 logs an error once and falls back to plain writes, so the site keeps working unprotected.

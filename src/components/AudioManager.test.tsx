@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import AudioManager from "./AudioManager";
 import type { AudioMetadata } from "@/types/audio";
+import { renderWithToast } from "@/test/adminToast";
 
 const originalConsoleError = console.error;
 beforeAll(() => {
@@ -51,7 +52,7 @@ describe("AudioManager", () => {
 
   it("shows loading state initially", () => {
     global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
-    render(<AudioManager refreshTrigger={0} setError={jest.fn()} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     expect(screen.getByText(/LOADING AUDIO/i)).toBeInTheDocument();
   });
 
@@ -59,7 +60,7 @@ describe("AudioManager", () => {
     global.fetch = jest.fn().mockResolvedValueOnce({
       json: () => Promise.resolve({ success: true, audio: [] }),
     });
-    render(<AudioManager refreshTrigger={0} setError={jest.fn()} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText(/NO AUDIO FILES/i)).toBeInTheDocument()
     );
@@ -69,7 +70,7 @@ describe("AudioManager", () => {
     global.fetch = jest.fn().mockResolvedValueOnce({
       json: () => Promise.resolve({ success: true, audio: mockAudio }),
     });
-    render(<AudioManager refreshTrigger={0} setError={jest.fn()} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() => {
       expect(screen.getByText("Song A")).toBeInTheDocument();
       expect(screen.getByText("Song B")).toBeInTheDocument();
@@ -81,7 +82,7 @@ describe("AudioManager", () => {
     global.fetch = jest.fn().mockResolvedValueOnce({
       json: () => Promise.resolve({ success: true, audio: mockAudio }),
     });
-    render(<AudioManager refreshTrigger={0} setError={jest.fn()} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
@@ -112,7 +113,7 @@ describe("AudioManager", () => {
         json: () => Promise.resolve({ success: true, audio: mockAudio }),
       });
 
-    render(<AudioManager refreshTrigger={0} setError={jest.fn()} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
@@ -133,7 +134,7 @@ describe("AudioManager", () => {
     global.fetch = jest.fn().mockResolvedValueOnce({
       json: () => Promise.resolve({ success: true, audio: mockAudio }),
     });
-    render(<AudioManager refreshTrigger={0} setError={jest.fn()} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
@@ -154,7 +155,7 @@ describe("AudioManager", () => {
         json: () => Promise.resolve({ success: true, audio: { ...mockAudio[0], title: "Renamed" } }),
       });
 
-    render(<AudioManager refreshTrigger={0} setError={jest.fn()} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
@@ -173,7 +174,7 @@ describe("AudioManager", () => {
     global.fetch = jest.fn().mockResolvedValueOnce({
       json: () => Promise.resolve({ success: true, audio: mockAudio }),
     });
-    render(<AudioManager refreshTrigger={0} setError={jest.fn()} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
@@ -195,7 +196,7 @@ describe("AudioManager", () => {
         json: () => Promise.resolve({ success: true }),
       });
 
-    render(<AudioManager refreshTrigger={0} setError={jest.fn()} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
@@ -212,7 +213,7 @@ describe("AudioManager", () => {
     global.fetch = jest.fn().mockResolvedValueOnce({
       json: () => Promise.resolve({ success: true, audio: mockAudio }),
     });
-    render(<AudioManager refreshTrigger={0} setError={jest.fn()} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
@@ -221,8 +222,7 @@ describe("AudioManager", () => {
     expect(screen.getByText("Song A")).toBeInTheDocument();
   });
 
-  it("calls setError on fetch failure during delete", async () => {
-    const setError = jest.fn();
+  it("should show error toast when delete fetch fails", async () => {
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce({
@@ -230,26 +230,33 @@ describe("AudioManager", () => {
       })
       .mockRejectedValueOnce(new Error("network"));
 
-    render(<AudioManager refreshTrigger={0} setError={setError} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
 
     fireEvent.click(screen.getAllByText("DEL")[0]);
 
-    await waitFor(() => expect(setError).toHaveBeenCalledWith("network"));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("network")
+    );
   });
 
-  it("calls setError on reorder failure", async () => {
-    const setError = jest.fn();
+  it("should show success toast when order saves", async () => {
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce({
         json: () => Promise.resolve({ success: true, audio: mockAudio }),
       })
-      .mockRejectedValueOnce(new Error("reorder fail"));
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true }),
+      })
+      .mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, audio: mockAudio }),
+      });
 
-    render(<AudioManager refreshTrigger={0} setError={setError} />);
+    renderWithToast(<AudioManager refreshTrigger={0} />);
     await waitFor(() =>
       expect(screen.getByText("Song A")).toBeInTheDocument()
     );
@@ -257,7 +264,94 @@ describe("AudioManager", () => {
     fireEvent.click(screen.getByText(/SAVE ORDER/i));
 
     await waitFor(() =>
-      expect(setError).toHaveBeenCalledWith("reorder fail")
+      expect(screen.getByRole("status")).toHaveTextContent(/Audio order saved/i)
+    );
+  });
+
+  it("should show error toast with API body when reorder returns 409", async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, audio: mockAudio }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: () =>
+          Promise.resolve({
+            error: "Someone else saved at the same moment. Reload and try again.",
+          }),
+      });
+
+    renderWithToast(<AudioManager refreshTrigger={0} />);
+    await waitFor(() =>
+      expect(screen.getByText("Song A")).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByText(/SAVE ORDER/i));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/Someone else saved/i)
+    );
+  });
+
+  it("should show success toast when rename succeeds", async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, audio: mockAudio }),
+      })
+      .mockResolvedValueOnce({
+        json: () =>
+          Promise.resolve({
+            success: true,
+            audio: { ...mockAudio[0], title: "Renamed" },
+          }),
+      });
+
+    renderWithToast(<AudioManager refreshTrigger={0} />);
+    await waitFor(() =>
+      expect(screen.getByText("Song A")).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getAllByText("REN")[0]);
+    fireEvent.change(screen.getByLabelText(/new title/i), {
+      target: { value: "Renamed" },
+    });
+    fireEvent.click(screen.getByText("OK"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(/Track renamed/i)
+    );
+  });
+
+  it("should show error toast with API body when rename returns 409", async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, audio: mockAudio }),
+      })
+      .mockResolvedValueOnce({
+        json: () =>
+          Promise.resolve({
+            success: false,
+            error: "Someone else saved at the same moment. Reload and try again.",
+          }),
+      });
+
+    renderWithToast(<AudioManager refreshTrigger={0} />);
+    await waitFor(() =>
+      expect(screen.getByText("Song A")).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getAllByText("REN")[0]);
+    fireEvent.change(screen.getByLabelText(/new title/i), {
+      target: { value: "Renamed" },
+    });
+    fireEvent.click(screen.getByText("OK"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/Someone else saved/i)
     );
   });
 });

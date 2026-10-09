@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { AudioMetadata } from "@/types/audio";
+import { useAdminToast } from "@/components/AdminToast";
+import { readApiError } from "@/lib/readApiError";
 
 interface AudioManagerProps {
   readonly refreshTrigger: number;
-  readonly setError: (msg: string | null) => void;
 }
 
 function formatSize(bytes: number): string {
@@ -17,8 +18,8 @@ function formatSize(bytes: number): string {
 
 export default function AudioManager({
   refreshTrigger,
-  setError,
 }: AudioManagerProps) {
+  const { showSuccess, showError } = useAdminToast();
   const [audioList, setAudioList] = useState<AudioMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [isReordering, setIsReordering] = useState(false);
@@ -67,7 +68,6 @@ export default function AudioManager({
   );
 
   const handleSaveOrder = async () => {
-    setError(null);
     try {
       const ids = audioList.map((a) => a.id);
       const res = await fetch("/api/audio/reorder", {
@@ -75,17 +75,20 @@ export default function AudioManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
       });
-      if (!res.ok) throw new Error("Failed to save order");
+      if (!res.ok) {
+        showError(await readApiError(res, "Failed to save order"));
+        return;
+      }
       await fetchAudio();
+      showSuccess("Audio order saved");
     } catch (err) {
       console.error("Reorder error:", err);
-      setError(err instanceof Error ? err.message : "Failed to save order");
+      showError(err instanceof Error ? err.message : "Failed to save order");
     }
   };
 
   const handleRename = async (id: string) => {
     if (!renameValue.trim()) return;
-    setError(null);
     try {
       const res = await fetch(`/api/audio/${id}`, {
         method: "PUT",
@@ -99,29 +102,29 @@ export default function AudioManager({
         );
         setRenamingId(null);
         setRenameValue("");
+        showSuccess("Track renamed");
       } else {
-        setError(data.error ?? "Rename failed");
+        showError(data.error ?? "Rename failed");
       }
     } catch (err) {
       console.error("Rename error:", err);
-      setError(err instanceof Error ? err.message : "Rename failed");
+      showError(err instanceof Error ? err.message : "Rename failed");
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this audio file?")) return;
-    setError(null);
     try {
       const res = await fetch(`/api/audio/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         setAudioList((prev) => prev.filter((a) => a.id !== id));
       } else {
-        setError(data.error ?? "Delete failed");
+        showError(data.error ?? "Delete failed");
       }
     } catch (err) {
       console.error("Delete error:", err);
-      setError(err instanceof Error ? err.message : "Delete failed");
+      showError(err instanceof Error ? err.message : "Delete failed");
     }
   };
 

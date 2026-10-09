@@ -1,9 +1,17 @@
 import { readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { test, expect } from "@playwright/test";
 
 const ADMIN_EMAIL = "editor@example.com";
 const DATA_DIR = ".data-local-s3";
+
+function stopMoto(): void {
+  execFileSync("bash", ["scripts/dev-s3-down.sh"], {
+    cwd: process.cwd(),
+    stdio: "inherit",
+  });
+}
 
 async function loginViaMagicLink(page: import("@playwright/test").Page, request: import("@playwright/test").APIRequestContext) {
   await request.post("/api/auth/magic-link", {
@@ -87,4 +95,17 @@ test("upload image and audio on moto mock without scw.cloud", async ({ page, req
   await expect(page.getByText("e2e tone", { exact: false })).toHaveCount(0, { timeout: 30_000 });
 
   expect(scwHits).toEqual([]);
+});
+
+test("shows error toast when moto stops mid-save", async ({ page, request }) => {
+  await loginViaMagicLink(page, request);
+  await expect(page.getByText(/UPDATE ABOUT TEXT/i)).toBeVisible();
+
+  stopMoto();
+
+  await page.getByRole("button", { name: "[ SAVE ]" }).click();
+  // Prefer .admin-toast: Next.js also mounts #__next-route-announcer__ with role=alert.
+  const toast = page.locator(".admin-toast[role='alert']");
+  await expect(toast).toBeVisible({ timeout: 60_000 });
+  await expect(toast).not.toHaveText("");
 });

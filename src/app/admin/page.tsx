@@ -7,9 +7,12 @@ import ImageUpload from "@/components/ImageUpload";
 import AudioUpload from "@/components/AudioUpload";
 import AudioManager from "@/components/AudioManager";
 import { LinkManager } from "@/components/LinkManager";
+import { AdminToastProvider, useAdminToast } from "@/components/AdminToast";
 import Image from "next/image";
 import type { SecurityEvent, SystemLock } from "@/lib/securityEvents";
 import { homePageImageCheckboxLabel } from "@/lib/imageSelectionLabel";
+import { readApiError } from "@/lib/readApiError";
+import { loadSiteForSave, putSiteWithEtags } from "@/lib/siteSave";
 
 interface User {
   id: string;
@@ -124,11 +127,10 @@ function SecurityPanel() {
 
 function ImageManager({
   refreshTrigger,
-  setError,
 }: Readonly<{
   refreshTrigger: number;
-  setError: (msg: string | null) => void;
 }>) {
+  const { showSuccess, showError } = useAdminToast();
   const [images, setImages] = useState<ImageMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -220,35 +222,24 @@ function ImageManager({
   );
 
   const handleSave = async () => {
-    setError(null);
     const selectedImagesArray = images
       .filter((img) => selectedImages.has(img.key))
       .map((img) => ({ id: img.key, url: img.url }));
 
     try {
-      const currentResponse = await fetch("/api/site");
-      if (!currentResponse.ok) {
-        throw new Error("Failed to fetch current site data");
-      }
-      const currentData = await currentResponse.json();
-
-      const response = await fetch("/api/site", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...currentData,
-          photos: selectedImagesArray,
-        }),
-      });
-
+      const { data, etags } = await loadSiteForSave();
+      const response = await putSiteWithEtags(
+        { ...data, photos: selectedImagesArray },
+        etags
+      );
       if (!response.ok) {
-        throw new Error("Failed to update site data");
+        showError(await readApiError(response, "Failed to update site data"));
+        return;
       }
+      showSuccess("Photo selection saved");
     } catch (error) {
       console.error("Failed to save image selection:", error);
-      setError(
+      showError(
         error instanceof Error
           ? error.message
           : "Failed to save image selection"
@@ -345,12 +336,12 @@ function ImageManager({
   );
 }
 
-export default function AdminPage() {
+function AdminPageInner() {
+  const { showSuccess, showError } = useAdminToast();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [aboutContent, setAboutContent] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -400,26 +391,19 @@ export default function AdminPage() {
 
   const handleAboutUpdate = async (content: string) => {
     try {
-      const currentResponse = await fetch("/api/site");
-      const currentData = await currentResponse.json();
-
-      const response = await fetch("/api/site", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...currentData,
-          about: { content },
-        }),
-      });
-
+      const { data, etags } = await loadSiteForSave();
+      const response = await putSiteWithEtags(
+        { ...data, about: { content } },
+        etags
+      );
       if (!response.ok) {
-        throw new Error("Failed to update about content");
+        showError(await readApiError(response, "Failed to update about content"));
+        return;
       }
+      showSuccess("About text saved");
     } catch (error) {
       console.error("Failed to update about content:", error);
-      setError(
+      showError(
         error instanceof Error
           ? error.message
           : "Failed to update about content"
@@ -480,12 +464,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {error && (
-          <div className="p-2 admin-inset admin-text text-sm text-center">
-            ! ERROR: {error}
-          </div>
-        )}
-
         {/* About Section */}
         <div className="admin-window">
           <div className="admin-title-bar">[ UPDATE ABOUT TEXT ]</div>
@@ -532,7 +510,7 @@ export default function AdminPage() {
         <div className="admin-window">
           <div className="admin-title-bar">[ IMAGE MANAGER ]</div>
           <div className="p-4 m-2">
-            <ImageManager refreshTrigger={refreshTrigger} setError={setError} />
+            <ImageManager refreshTrigger={refreshTrigger} />
           </div>
         </div>
 
@@ -548,10 +526,18 @@ export default function AdminPage() {
         <div className="admin-window">
           <div className="admin-title-bar">[ AUDIO MANAGER ]</div>
           <div className="p-4 m-2">
-            <AudioManager refreshTrigger={refreshTrigger} setError={setError} />
+            <AudioManager refreshTrigger={refreshTrigger} />
           </div>
         </div>
       </main>
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <AdminToastProvider>
+      <AdminPageInner />
+    </AdminToastProvider>
   );
 }

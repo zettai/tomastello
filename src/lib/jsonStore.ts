@@ -76,7 +76,7 @@ export async function writeJson(key: string, data: unknown, expectedEtag: string
   }
 }
 
-/** Unconditional JSON replace (admin site/links saves). */
+/** Unconditional JSON replace (tests / rare admin wipe paths). */
 export async function replaceJson(key: string, data: unknown): Promise<void> {
   await getObjectStore().put(key, JSON.stringify(data, null, 2), {
     contentType: "application/json",

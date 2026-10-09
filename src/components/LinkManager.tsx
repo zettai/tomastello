@@ -2,12 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { LinkMetadata } from "@/types/link";
+import { useAdminToast } from "@/components/AdminToast";
+import { readApiError } from "@/lib/readApiError";
+import { loadSiteForSave, putSiteWithEtags } from "@/lib/siteSave";
 
 interface LinkManagerProps {
   readonly refreshTrigger: number;
 }
 
 export function LinkManager({ refreshTrigger }: LinkManagerProps) {
+  const { showSuccess, showError } = useAdminToast();
   const [links, setLinks] = useState<LinkMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingLink, setEditingLink] = useState<LinkMetadata | null>(null);
@@ -41,7 +45,7 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
     e.preventDefault();
 
     if (!formData.text || !formData.href) {
-      alert("Text and URL are required");
+      showError("Text and URL are required");
       return;
     }
 
@@ -57,12 +61,13 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
         setLinks([...links, result.link]);
         setFormData({ text: "", href: "", description: "" });
         setIsCreating(false);
+        showSuccess("Link created");
       } else {
-        alert(result.error || "Failed to create link");
+        showError(result.error || "Failed to create link");
       }
     } catch (error) {
       console.error("Create error:", error);
-      alert("Failed to create link");
+      showError("Failed to create link");
     }
   };
 
@@ -73,7 +78,7 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
     if (!editingLink) return;
 
     if (!formData.text || !formData.href) {
-      alert("Text and URL are required");
+      showError("Text and URL are required");
       return;
     }
 
@@ -89,12 +94,13 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
         setLinks(links.map((l) => (l.id === editingLink.id ? result.link : l)));
         setEditingLink(null);
         setFormData({ text: "", href: "", description: "" });
+        showSuccess("Link updated");
       } else {
-        alert(result.error || "Failed to update link");
+        showError(result.error || "Failed to update link");
       }
     } catch (error) {
       console.error("Update error:", error);
-      alert("Failed to update link");
+      showError("Failed to update link");
     }
   };
 
@@ -111,11 +117,11 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
       if (result.success) {
         setLinks(links.filter((l) => l.id !== id));
       } else {
-        alert(result.error || "Failed to delete link");
+        showError(result.error || "Failed to delete link");
       }
     } catch (error) {
       console.error("Delete error:", error);
-      alert("Failed to delete link");
+      showError("Failed to delete link");
     }
   };
 
@@ -136,29 +142,16 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
   // Save order
   const handleSaveOrder = async () => {
     try {
-      // Fetch current site data to preserve other fields
-      const currentResponse = await fetch("/api/site");
-      const currentData = await currentResponse.json();
-
-      // Update with new link order
-      const response = await fetch("/api/site", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...currentData,
-          links: links,
-        }),
-      });
-
-      const result = await response.json();
-      if (result.error) {
-        alert(result.error || "Failed to save order");
-      } else {
-        alert("Link order saved successfully!");
+      const { data, etags } = await loadSiteForSave();
+      const response = await putSiteWithEtags({ ...data, links }, etags);
+      if (!response.ok) {
+        showError(await readApiError(response, "Failed to save order"));
+        return;
       }
+      showSuccess("Link order saved");
     } catch (error) {
       console.error("Save order error:", error);
-      alert("Failed to save order");
+      showError("Failed to save order");
     }
   };
 

@@ -1,22 +1,36 @@
-import { readJson, replaceJson, updateJson } from "./jsonStore";
+import { readJson, updateJson, writeJson, type Versioned } from "./jsonStore";
 import { SiteData } from "@/types/site";
 
 const SITE_DATA_FILE_KEY = "metadata/site.json";
 
+const emptySite = (): SiteData => ({ about: { content: "" }, photos: [] });
+
+/** Reads site.json with its ETag (null etag when the object does not exist). */
+export async function readSiteData(): Promise<Versioned<SiteData>> {
+  return readJson<SiteData>(SITE_DATA_FILE_KEY, emptySite());
+}
+
 export async function getSiteData(): Promise<SiteData> {
-  return (await readJson<SiteData>(SITE_DATA_FILE_KEY, { about: { content: "" }, photos: [] })).data;
+  return (await readSiteData()).data;
 }
 
 /**
- * Replaces the site document. Unconditional on purpose: PUT /api/site sends the whole state from
- * the admin page, so the last save wins (see docs/NETLIFY.md, "Concurrent saves").
+ * Conditionally replaces the site document. Pass the ETag from the GET that loaded the
+ * form (`If-Match`); null means the object must not exist yet. Throws ConflictError when
+ * another save won the race (routes map that to 409).
+ *
+ * When `expectedEtag` is omitted, writes against the current ETag (narrow server-side race
+ * only) so callers that do not carry a version still get conditional puts.
  */
-export async function saveSiteData(data: SiteData): Promise<void> {
+export async function saveSiteData(
+  data: SiteData,
+  expectedEtag?: string | null
+): Promise<void> {
   const stamped: SiteData = { ...data, updatedAt: new Date().toISOString() };
-  await replaceJson(SITE_DATA_FILE_KEY, stamped);
+  const etag =
+    expectedEtag === undefined ? (await readSiteData()).etag : expectedEtag;
+  await writeJson(SITE_DATA_FILE_KEY, stamped, etag);
 }
-
-const emptySite = (): SiteData => ({ about: { content: "" }, photos: [] });
 
 /** Removes a published photo by object key (`photos[].id`). Returns whether one was removed. */
 export async function removeSitePhotoByKey(key: string): Promise<boolean> {

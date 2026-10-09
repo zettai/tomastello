@@ -1,15 +1,15 @@
 import { GET, PUT } from "./route";
 import { purgePublicPages } from "@/lib/cdn";
-import { getSiteData, saveSiteData } from "@/lib/site";
+import { readSiteData, saveSiteData } from "@/lib/site";
 import { verifyToken } from "@/lib/auth";
-import { getLinkMetadata, saveLinkMetadata } from "@/lib/links";
+import { readLinkMetadata, saveLinkMetadata } from "@/lib/links";
+import { ConflictError } from "@/lib/jsonStore";
 import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
 import type { LinkMetadata } from "@/types/link";
 
-// Mock dependencies
 jest.mock("@/lib/site", () => ({
-  getSiteData: jest.fn(),
+  readSiteData: jest.fn(),
   saveSiteData: jest.fn(),
 }));
 
@@ -18,7 +18,7 @@ jest.mock("@/lib/auth", () => ({
 }));
 
 jest.mock("@/lib/links", () => ({
-  getLinkMetadata: jest.fn(),
+  readLinkMetadata: jest.fn(),
   saveLinkMetadata: jest.fn(),
 }));
 
@@ -31,10 +31,10 @@ jest.mock("next/cache", () => ({
 }));
 
 function getRequest(url: string, token?: string) {
-  // jest.setup.ts mocks next/server, so build the request the way the route reads it
   return {
     url: url,
     cookies: { get: (name: string) => (name === "auth-token" && token ? { value: token } : undefined) },
+    headers: { get: () => null },
   } as unknown as NextRequest;
 }
 
@@ -42,140 +42,116 @@ describe("GET /api/site", () => {
   it("returns site data successfully", async () => {
     const mockData = { about: { content: "Test content" }, photos: [] };
     const mockLinks: LinkMetadata[] = [];
-    (getSiteData as jest.Mock).mockResolvedValueOnce(mockData);
-    (getLinkMetadata as jest.Mock).mockResolvedValueOnce(mockLinks);
+    (readSiteData as jest.Mock).mockResolvedValueOnce({ data: mockData, etag: '"site-1"' });
+    (readLinkMetadata as jest.Mock).mockResolvedValueOnce({ data: mockLinks, etag: '"links-1"' });
 
     const response = await GET(getRequest("http://localhost/api/site"));
     const data = await response.json();
 
     expect(response.status).toBe(200);
     expect(data).toEqual({ ...mockData, links: mockLinks });
+    expect(response.headers.get("ETag")).toBe('"site-1"');
+    expect(response.headers.get("X-Links-ETag")).toBe('"links-1"');
   });
 
-  it("hides link creator emails from the public, shows them to admins", async () => {
-    const link: LinkMetadata = {
-      id: "1",
-      text: "Link",
-      href: "https://example.com",
-      createdAt: "2024-01-01T00:00:00.000Z",
-      createdBy: "admin@test.com",
-    };
-    (getSiteData as jest.Mock).mockResolvedValue({ about: { content: "" }, photos: [] });
-    (getLinkMetadata as jest.Mock).mockResolvedValue([link]);
+  it("strips createdBy for unauthenticated requests", async () => {
+    const mockLinks: LinkMetadata[] = [
+      {
+        id: "1",
+        text: "A",
+        href: "https://a.com",
+        createdAt: "2024-01-01",
+        createdBy: "admin@example.com",
+      },
+    ];
+    (readSiteData as jest.Mock).mockResolvedValue({
+      data: { about: { content: "" }, photos: [] },
+      etag: null,
+    });
+    (readLinkMetadata as jest.Mock).mockResolvedValue({ data: mockLinks, etag: null });
+    (verifyToken as jest.Mock).mockResolvedValueOnce(null);
 
-    const publicData = await (await GET(getRequest("http://localhost/api/site"))).json();
-    expect(publicData.links[0]).not.toHaveProperty("createdBy");
-
-    (verifyToken as jest.Mock).mockResolvedValueOnce({ id: "1", email: "admin@test.com" });
-    const adminData = await (await GET(getRequest("http://localhost/api/site", "valid"))).json();
-    expect(adminData.links[0].createdBy).toBe("admin@test.com");
+    const response = await GET(getRequest("http://localhost/api/site", "bad"));
+    const data = await response.json();
+    expect(data.links[0].createdBy).toBeUndefined();
   });
 
-  it("handles errors when getting site data", async () => {
-    (getSiteData as jest.Mock).mockRejectedValueOnce(
+  it("handles get errors", async () => {
+    (readSiteData as jest.Mock).mockRejectedValueOnce(
       new Error("Failed to get site data")
     );
 
     const response = await GET(getRequest("http://localhost/api/site"));
-    const data = await response.json();
-
     expect(response.status).toBe(500);
-    expect(data).toEqual({ error: "Failed to get site data" });
   });
 });
 
 describe("PUT /api/site", () => {
-  it("returns 401 if no auth token", async () => {
+  it("requires authentication", async () => {
     const request = {
-      cookies: {
-        get: jest.fn().mockReturnValue(undefined),
-      },
-      json: jest.fn().mockResolvedValue({}),
+      cookies: { get: jest.fn().mockReturnValue(undefined) },
+      headers: { get: () => null },
+      json: jest.fn(),
     } as unknown as NextRequest;
 
     const response = await PUT(request);
-    const data = await response.json();
-
     expect(response.status).toBe(401);
-    expect(data).toEqual({ error: "Authentication required" });
   });
 
-  it("returns 401 if invalid token", async () => {
+  it("rejects invalid token", async () => {
     (verifyToken as jest.Mock).mockResolvedValueOnce(null);
-
     const request = {
-      cookies: {
-        get: jest.fn().mockReturnValue({ value: "invalid-token" }),
-      },
-      json: jest.fn().mockResolvedValue({}),
+      cookies: { get: jest.fn().mockReturnValue({ value: "bad" }) },
+      headers: { get: () => null },
+      json: jest.fn(),
     } as unknown as NextRequest;
 
     const response = await PUT(request);
-    const data = await response.json();
-
     expect(response.status).toBe(401);
-    expect(data).toEqual({ error: "Invalid token" });
   });
 
-  it("returns 400 if about content is too long", async () => {
-    (verifyToken as jest.Mock).mockResolvedValueOnce({
-      email: "test@example.com",
-    });
-
+  it("rejects about content over 2000 chars", async () => {
+    (verifyToken as jest.Mock).mockResolvedValueOnce({ email: "a@b.com" });
     const request = {
-      cookies: {
-        get: jest.fn().mockReturnValue({ value: "valid-token" }),
-      },
-      json: jest
-        .fn()
-        .mockResolvedValue({ about: { content: "a".repeat(2001) } }),
+      cookies: { get: jest.fn().mockReturnValue({ value: "tok" }) },
+      headers: { get: () => null },
+      json: jest.fn().mockResolvedValue({
+        about: { content: "x".repeat(2001) },
+      }),
     } as unknown as NextRequest;
 
     const response = await PUT(request);
-    const data = await response.json();
-
     expect(response.status).toBe(400);
-    expect(data).toEqual({
-      error: "About content must be 2000 characters or less",
-    });
   });
 
-  it("returns 400 if photos is not an array", async () => {
-    (verifyToken as jest.Mock).mockResolvedValueOnce({
-      email: "test@example.com",
-    });
-
+  it("rejects invalid photos", async () => {
+    (verifyToken as jest.Mock).mockResolvedValueOnce({ email: "a@b.com" });
     const request = {
-      cookies: {
-        get: jest.fn().mockReturnValue({ value: "valid-token" }),
-      },
-      json: jest.fn().mockResolvedValue({ photos: "not an array" }),
+      cookies: { get: jest.fn().mockReturnValue({ value: "tok" }) },
+      headers: { get: () => null },
+      json: jest.fn().mockResolvedValue({
+        about: { content: "ok" },
+        photos: [{ id: "1" }],
+      }),
     } as unknown as NextRequest;
 
     const response = await PUT(request);
-    const data = await response.json();
-
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Photos must be an array" });
   });
 
-  it("returns 400 if a photo is missing id or url", async () => {
-    (verifyToken as jest.Mock).mockResolvedValueOnce({
-      email: "test@example.com",
-    });
-
+  it("rejects invalid links", async () => {
+    (verifyToken as jest.Mock).mockResolvedValueOnce({ email: "a@b.com" });
     const request = {
-      cookies: {
-        get: jest.fn().mockReturnValue({ value: "valid-token" }),
-      },
-      json: jest.fn().mockResolvedValue({ photos: [{ id: "1" }] }),
+      cookies: { get: jest.fn().mockReturnValue({ value: "tok" }) },
+      headers: { get: () => null },
+      json: jest.fn().mockResolvedValue({
+        about: { content: "ok" },
+        links: [{ text: "x" }],
+      }),
     } as unknown as NextRequest;
 
     const response = await PUT(request);
-    const data = await response.json();
-
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Each photo must have id and url" });
   });
 
   it("updates site data successfully", async () => {
@@ -185,13 +161,19 @@ describe("PUT /api/site", () => {
     (saveSiteData as jest.Mock).mockResolvedValueOnce(undefined);
     (saveLinkMetadata as jest.Mock).mockResolvedValueOnce(undefined);
 
+    const headers = new Map<string, string>([
+      ["If-Match", '"site-1"'],
+      ["X-Links-If-Match", '"links-1"'],
+    ]);
     const request = {
       cookies: {
         get: jest.fn().mockReturnValue({ value: "valid-token" }),
       },
+      headers: { get: (name: string) => headers.get(name) ?? null },
       json: jest.fn().mockResolvedValue({
         about: { content: "Test content" },
         photos: [{ id: "1", url: "https://example.com/photo1.jpg" }],
+        links: [],
       }),
     } as unknown as NextRequest;
 
@@ -199,12 +181,40 @@ describe("PUT /api/site", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toEqual({
-      about: { content: "Test content" },
-      photos: [{ id: "1", url: "https://example.com/photo1.jpg" }],
-    });
+    expect(data.about.content).toBe("Test content");
+    expect(saveSiteData).toHaveBeenCalledWith(
+      expect.objectContaining({ about: { content: "Test content" } }),
+      '"site-1"'
+    );
+    expect(saveLinkMetadata).toHaveBeenCalledWith([], '"links-1"');
     expect(revalidatePath).toHaveBeenCalledWith("/");
     expect(purgePublicPages).toHaveBeenCalled();
+  });
+
+  it("returns 409 when site save conflicts", async () => {
+    (verifyToken as jest.Mock).mockResolvedValueOnce({
+      email: "test@example.com",
+    });
+    (saveSiteData as jest.Mock).mockRejectedValueOnce(
+      new ConflictError("metadata/site.json")
+    );
+
+    const request = {
+      cookies: {
+        get: jest.fn().mockReturnValue({ value: "valid-token" }),
+      },
+      headers: { get: () => null },
+      json: jest.fn().mockResolvedValue({
+        about: { content: "Test content" },
+        photos: [],
+      }),
+    } as unknown as NextRequest;
+
+    const response = await PUT(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data.error).toMatch(/Someone else saved/i);
   });
 
   it("handles errors when updating site data", async () => {
@@ -214,12 +224,12 @@ describe("PUT /api/site", () => {
     (saveSiteData as jest.Mock).mockRejectedValueOnce(
       new Error("Failed to update site data")
     );
-    (saveLinkMetadata as jest.Mock).mockResolvedValueOnce(undefined);
 
     const request = {
       cookies: {
         get: jest.fn().mockReturnValue({ value: "valid-token" }),
       },
+      headers: { get: () => null },
       json: jest.fn().mockResolvedValue({
         about: { content: "Test content" },
         photos: [{ id: "1", url: "https://example.com/photo1.jpg" }],

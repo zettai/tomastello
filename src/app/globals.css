@@ -189,3 +189,28 @@ audio {
 .admin-textarea::placeholder {
   color: var(--admin-text-secondary);
 }
+
+.admin-toast-stack {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: min(24rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.admin-toast {
+  pointer-events: auto;
+  box-shadow: 4px 4px 0 var(--border);
+}
+
+.admin-toast-success .admin-title-bar {
+  background: var(--admin-title-bg);
+}
+
+.admin-toast-error .admin-title-bar {
+  background: var(--color-primary);
+}
