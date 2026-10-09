@@ -71,4 +71,23 @@ describe("AdminToast", () => {
       expect(screen.getByRole("status")).toHaveTextContent("Restored");
     });
   });
+
+  it("should keep at most two toasts with the newest on top", async () => {
+    render(
+      <AdminToastProvider>
+        <Trigger />
+      </AdminToastProvider>
+    );
+    act(() => {
+      screen.getByText("ok").click();
+      screen.getByText("err").click();
+      screen.getByText("with-undo").click();
+    });
+    await waitFor(() => {
+      const statuses = screen.queryAllByRole("status");
+      const alerts = screen.queryAllByRole("alert");
+      expect(statuses.length + alerts.length).toBe(2);
+      expect(statuses[0]).toHaveTextContent("Hidden");
+    });
+  });
 });

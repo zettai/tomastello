@@ -298,10 +298,33 @@ function ImageManager({
     });
   };
 
+  const focusActionRef = useRef<"show" | "hide" | null>(null);
+  const focusKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const key = focusKeyRef.current;
+    const action = focusActionRef.current;
+    if (!key || !action) return;
+    focusKeyRef.current = null;
+    focusActionRef.current = null;
+    const id = window.requestAnimationFrame(() => {
+      const row = document.querySelector(
+        `[data-photo-key="${CSS.escape(key)}"]`
+      );
+      const btn = row?.querySelector(
+        `[data-photo-action="${action}"]`
+      ) as HTMLButtonElement | null;
+      btn?.focus();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [onSiteKeys]);
+
   const hidePhoto = (key: string) => {
     if (!onSiteKeys.includes(key)) return;
     const previous = onSiteKeys;
     const next = onSiteKeys.filter((k) => k !== key);
+    focusKeyRef.current = key;
+    focusActionRef.current = "show";
     setOnSiteKeys(next);
     persistPhotos(next, previous, "Photo hidden");
   };
@@ -310,6 +333,8 @@ function ImageManager({
     if (onSiteKeys.includes(key)) return;
     const previous = onSiteKeys;
     const next = [...onSiteKeys, key];
+    focusKeyRef.current = key;
+    focusActionRef.current = "hide";
     setOnSiteKeys(next);
     persistPhotos(next, previous, "Photo shown on site");
   };
@@ -322,28 +347,31 @@ function ImageManager({
   ) => (
     <div
       key={image.key}
-      className="admin-inset flex items-center space-x-4 p-3"
+      className="admin-inset admin-media-row p-3"
       data-photo-group={group}
+      data-photo-key={image.key}
     >
-      <Image
-        src={image.url}
-        alt={displayFileName(image.key, image.originalName)}
-        width={64}
-        height={64}
-        className="object-cover h-auto"
-        quality={50}
-        loading="lazy"
-        sizes="64px"
-      />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium admin-text break-words line-clamp-2">
-          {displayFileName(image.key, image.originalName)}
-        </p>
-        <p className="text-xs admin-text-secondary mt-1">
-          {new Date(image.lastModified).toLocaleDateString()}
-        </p>
+      <div className="admin-media-row-main min-w-0">
+        <Image
+          src={image.url}
+          alt={displayFileName(image.key, image.originalName)}
+          width={64}
+          height={64}
+          className="object-cover h-auto shrink-0"
+          quality={50}
+          loading="lazy"
+          sizes="64px"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium admin-text break-all">
+            {displayFileName(image.key, image.originalName)}
+          </p>
+          <p className="text-xs admin-text-secondary mt-1">
+            {new Date(image.lastModified).toLocaleDateString()}
+          </p>
+        </div>
       </div>
-      <div className="flex space-x-1">
+      <div className="admin-media-row-controls">
         {group === "on-site" && (
           <>
             <button
@@ -366,6 +394,7 @@ function ImageManager({
             </button>
             <button
               type="button"
+              data-photo-action="hide"
               onClick={() => hidePhoto(image.key)}
               className="admin-button px-2 py-1 text-xs"
               aria-label={`Hide ${displayFileName(image.key, image.originalName)} from site`}
@@ -377,6 +406,7 @@ function ImageManager({
         {group === "not-shown" && (
           <button
             type="button"
+            data-photo-action="show"
             onClick={() => showPhoto(image.key)}
             className="admin-button px-2 py-1 text-xs"
             aria-label={`Show ${displayFileName(image.key, image.originalName)} on site`}
@@ -403,20 +433,33 @@ function ImageManager({
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {images.length === 0 && (
+  if (images.length === 0) {
+    return (
+      <div className="space-y-6">
         <div className="p-4 text-center admin-text">[ NO IMAGES ]</div>
-      )}
+        <ConfirmDeleteModal
+          open={pendingDeleteKey !== null}
+          itemName={pendingName}
+          onCancel={() => setPendingDeleteKey(null)}
+          onConfirm={() => {
+            void confirmDelete();
+          }}
+          returnFocusRef={deleteTriggerRef}
+        />
+      </div>
+    );
+  }
 
-      <section aria-labelledby="on-site-heading" className="space-y-2">
+  return (
+    <div className="space-y-6 min-w-0 overflow-x-hidden">
+      <section aria-labelledby="on-site-heading" className="space-y-2 min-w-0">
         <h3 id="on-site-heading" className="admin-text font-bold">
           On the site ({onSiteImages.length})
         </h3>
         {onSiteImages.length === 0 ? (
           <p className="admin-text-secondary text-sm">No photos on the site.</p>
         ) : (
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-2 min-w-0">
             {onSiteImages.map((image, index) =>
               renderRow(image, "on-site", index, onSiteImages.length)
             )}
@@ -424,14 +467,14 @@ function ImageManager({
         )}
       </section>
 
-      <section aria-labelledby="not-shown-heading" className="space-y-2">
+      <section aria-labelledby="not-shown-heading" className="space-y-2 min-w-0">
         <h3 id="not-shown-heading" className="admin-text font-bold">
           Not shown ({notShownImages.length})
         </h3>
         {notShownImages.length === 0 ? (
           <p className="admin-text-secondary text-sm">All photos are on the site.</p>
         ) : (
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-2 min-w-0">
             {notShownImages.map((image, index) =>
               renderRow(image, "not-shown", index, notShownImages.length)
             )}
@@ -572,8 +615,8 @@ function AdminPageInner() {
   };
 
   return (
-    <div className="min-h-screen p-4 sm:p-8 admin-page">
-      <main className="max-w-6xl mx-auto space-y-4">
+    <div className="min-h-screen p-4 sm:p-8 admin-page overflow-x-hidden">
+      <main className="max-w-6xl mx-auto space-y-4 min-w-0 overflow-x-hidden">
         <div className="flex items-center justify-between mb-4">
           <Link href="/" className="admin-button text-sm">
             &lt;&lt; BACK TO SITE

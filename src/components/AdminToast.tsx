@@ -98,27 +98,33 @@ export function AdminToastProvider({
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const pushToast = useCallback((item: ToastItem) => {
+    // Newest on top; keep at most two so Undo does not slide under the pointer.
+    setToasts((prev) => [item, ...prev].slice(0, 2));
+  }, []);
+
   const showSuccess = useCallback(
     (message: string, options?: ToastSuccessOptions) => {
-      setToasts((prev) => [
-        ...prev,
-        {
-          id: Date.now() + Math.random(),
-          kind: "success",
-          message,
-          onUndo: options?.onUndo,
-        },
-      ]);
+      pushToast({
+        id: Date.now() + Math.random(),
+        kind: "success",
+        message,
+        onUndo: options?.onUndo,
+      });
     },
-    []
+    [pushToast]
   );
 
-  const showError = useCallback((message: string) => {
-    setToasts((prev) => [
-      ...prev,
-      { id: Date.now() + Math.random(), kind: "error", message },
-    ]);
-  }, []);
+  const showError = useCallback(
+    (message: string) => {
+      pushToast({
+        id: Date.now() + Math.random(),
+        kind: "error",
+        message,
+      });
+    },
+    [pushToast]
+  );
 
   const api = useMemo(
     () => ({ showSuccess, showError }),

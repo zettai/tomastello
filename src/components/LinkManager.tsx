@@ -300,25 +300,27 @@ export function LinkManager({ refreshTrigger }: LinkManagerProps) {
           {links.map((link, index) => (
             <div
               key={link.id}
-              className="admin-window p-3 flex items-start gap-3"
+              className="admin-window admin-media-row p-3 min-w-0"
             >
-              <div className="flex-1 min-w-0">
-                <div className="admin-text font-bold">{link.text}</div>
-                <a
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs admin-text-secondary underline break-all"
-                >
-                  {link.href}
-                </a>
-                {link.description && (
-                  <p className="text-xs admin-text-secondary mt-1">
-                    {link.description}
-                  </p>
-                )}
+              <div className="admin-media-row-main min-w-0">
+                <div className="min-w-0 flex-1">
+                  <div className="admin-text font-bold break-all">{link.text}</div>
+                  <a
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs admin-text-secondary underline break-all"
+                  >
+                    {link.href}
+                  </a>
+                  {link.description && (
+                    <p className="text-xs admin-text-secondary mt-1 break-all">
+                      {link.description}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-1 flex-shrink-0">
+              <div className="admin-media-row-controls">
                 <button
                   onClick={() => moveLink(index, "up")}
                   disabled={index === 0}

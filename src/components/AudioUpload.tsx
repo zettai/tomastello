@@ -330,7 +330,7 @@ export default function AudioUpload({
                 &gt; UPLOAD AUDIO
               </p>
               <p className={`text-sm ${textSecondaryClass}`}>
-                Drag and drop or click to select (multiple OK)
+                Drop files here or click to choose. You can pick several.
               </p>
               <p className={`text-xs ${textTertiaryClass} mt-2`}>
                 Max 100MB per file &bull; MP3, OGG, FLAC, WAV, AAC, WebM

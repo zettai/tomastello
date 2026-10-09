@@ -169,7 +169,7 @@ test.describe("Story 6 admin save-on-change", () => {
     const photos = photosSection(page);
     for (const name of ["story6-a.png", "story6-b.png", "story6-c.png"]) {
       await photos.locator(".admin-inset", { hasText: name }).getByRole("button", { name: new RegExp(`Show ${name}`, "i") }).click();
-      await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo shown/i, {
+      await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo shown/i, {
         timeout: 30_000,
       });
     }
@@ -178,7 +178,7 @@ test.describe("Story 6 admin save-on-change", () => {
     const onSite = photos.locator('[data-photo-group="on-site"]');
     await expect(onSite).toHaveCount(3);
     await onSite.nth(0).getByRole("button", { name: /Move .* down/i }).click();
-    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo order saved/i);
+    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo order saved/i);
 
     const orderAfterMove = await onSite.locator("p.text-sm").allTextContents();
     expect(orderAfterMove[0]).toContain("story6-b.png");
@@ -194,9 +194,9 @@ test.describe("Story 6 admin save-on-change", () => {
     expect(orderReload[2]).toContain("story6-c.png");
 
     await onSiteReload.nth(0).getByRole("button", { name: /Hide story6-b\.png/i }).click();
-    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo hidden/i);
-    await page.locator(".admin-toast[role='status']").last().getByRole("button", { name: "Undo" }).click();
-    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photos restored/i);
+    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo hidden/i);
+    await page.locator(".admin-toast[role='status']").first().getByRole("button", { name: "Undo" }).click();
+    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photos restored/i);
     await expect(photosSection(page).locator('[data-photo-group="on-site"]', { hasText: "story6-b.png" })).toHaveCount(1);
 
     const links = linksSection(page);
@@ -216,6 +216,21 @@ test.describe("Story 6 admin save-on-change", () => {
         fullPage: true,
       });
     }
+
+    await page.setViewportSize({ width: 320, height: 568 });
+    const overflow = await page.evaluate(() => {
+      const root = document.documentElement;
+      const pageOverflow = root.scrollWidth > root.clientWidth + 1;
+      const sections = Array.from(
+        document.querySelectorAll("main .admin-window, main [aria-labelledby]")
+      );
+      const sectionOverflow = sections.some(
+        (el) => (el as HTMLElement).scrollWidth > (el as HTMLElement).clientWidth + 1
+      );
+      return { pageOverflow, sectionOverflow };
+    });
+    expect(overflow.pageOverflow).toBe(false);
+    expect(overflow.sectionOverflow).toBe(false);
   });
 
   test("should reorder on-site photos with the keyboard", async ({ page, request }) => {
@@ -229,7 +244,7 @@ test.describe("Story 6 admin save-on-change", () => {
       const hide = priorOnSite.nth(0).getByRole("button", { name: /^HIDE$/i });
       if (await hide.count()) {
         await hide.click();
-        await expect(page.locator(".admin-toast[role='status']").last()).toBeVisible({ timeout: 30_000 });
+        await expect(page.locator(".admin-toast[role='status']").first()).toBeVisible({ timeout: 30_000 });
       }
     }
 
@@ -241,16 +256,16 @@ test.describe("Story 6 admin save-on-change", () => {
     await expect(page.getByText("kb-b.png").first()).toBeVisible({ timeout: 90_000 });
 
     await photos.getByRole("button", { name: /Show kb-a\.png/i }).click();
-    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo shown/i);
+    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo shown/i);
     await photos.getByRole("button", { name: /Show kb-b\.png/i }).click();
-    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo shown/i);
+    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo shown/i);
     await expect(photos.locator('[data-photo-group="on-site"]', { hasText: "kb-a.png" })).toHaveCount(1);
     await expect(photos.locator('[data-photo-group="on-site"]', { hasText: "kb-b.png" })).toHaveCount(1);
 
     const down = photos.getByRole("button", { name: /Move kb-a\.png down/i });
     await down.focus();
     await page.keyboard.press("Enter");
-    await expect(page.locator(".admin-toast[role='status']").last()).toContainText(/Photo order saved/i);
+    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo order saved/i);
 
     const order = await photos.locator('[data-photo-group="on-site"] p.text-sm').allTextContents();
     const kbOrder = order.filter((t) => t.includes("kb-a.png") || t.includes("kb-b.png"));

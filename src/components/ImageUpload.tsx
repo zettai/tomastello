@@ -173,7 +173,7 @@ export default function ImageUpload({ onUploadSuccess, adminMode = false }: Imag
                 &gt; UPLOAD IMAGE
               </p>
               <p className={`text-sm ${textSecondaryClass}`}>
-                Drag and drop or click to select (multiple OK)
+                Drop files here or click to choose. You can pick several.
               </p>
               <p className={`text-xs ${textTertiaryClass} mt-2`}>
                 Max 30MB • JPG, PNG, GIF, WebP

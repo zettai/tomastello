@@ -157,16 +157,16 @@ export default function AudioManager({
         {audioList.map((audio, index) => (
           <div
             key={audio.id}
-            className="admin-inset flex items-center space-x-2 p-3 min-w-0"
+            className="admin-inset admin-media-row p-3 min-w-0"
           >
-            <div className="flex-1 min-w-0 overflow-hidden">
+            <div className="admin-media-row-main min-w-0">
               {renamingId === audio.id ? (
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-2 min-w-0 w-full">
                   <input
                     type="text"
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
-                    className="admin-inset px-1 py-0.5 text-sm flex-1"
+                    className="admin-inset px-1 py-0.5 text-sm flex-1 min-w-0"
                     aria-label="New title"
                   />
                   <button
@@ -186,18 +186,18 @@ export default function AudioManager({
                   </button>
                 </div>
               ) : (
-                <>
-                  <p className="text-sm font-medium admin-text truncate">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium admin-text break-all">
                     {audio.title}
                   </p>
                   <p className="text-xs admin-text-secondary break-all">
                     {formatSize(audio.size)} • {audio.mimeType}
                   </p>
-                </>
+                </div>
               )}
             </div>
 
-            <div className="flex space-x-1 shrink-0">
+            <div className="admin-media-row-controls">
               <button
                 onClick={() => moveAudio(index, "up")}
                 disabled={index === 0}

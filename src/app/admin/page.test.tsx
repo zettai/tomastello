@@ -339,6 +339,7 @@ describe("AdminPage", () => {
     render(<AdminPage />);
     await waitFor(() => {
       expect(screen.getByText(/NO IMAGES/i)).toBeInTheDocument();
+      expect(screen.queryByText(/No photos on the site/i)).not.toBeInTheDocument();
     });
   });
 
