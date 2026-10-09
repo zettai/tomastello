@@ -59,3 +59,4 @@ next-env.d.ts
 .netlify/
 crawl.json
 e2e/artifacts/
+deno.lock
