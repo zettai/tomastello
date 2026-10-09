@@ -205,7 +205,7 @@ describe("AdminPage", () => {
     render(<AdminPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/MANAGE IMAGES/i)).toBeInTheDocument();
+      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
       expect(screen.getByText("image1.jpg")).toBeInTheDocument();
       expect(screen.getByText("image2.jpg")).toBeInTheDocument();
     });
@@ -231,7 +231,7 @@ describe("AdminPage", () => {
     render(<AdminPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/MANAGE IMAGES/i)).toBeInTheDocument();
+      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
     });
 
     const deleteButtons = screen.getAllByText("DEL");
@@ -334,7 +334,7 @@ describe("AdminPage", () => {
       .mockRejectedValueOnce(new Error("fetch error"));
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/MANAGE IMAGES/i)).toBeInTheDocument();
+      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
     });
   });
 
@@ -355,7 +355,7 @@ describe("AdminPage", () => {
       .mockRejectedValueOnce(new Error("fetch error"));
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/MANAGE IMAGES/i)).toBeInTheDocument();
+      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
     });
   });
 
@@ -377,7 +377,7 @@ describe("AdminPage", () => {
     });
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/MANAGE IMAGES/i)).toBeInTheDocument();
+      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
     });
     const deleteButtons = screen.getAllByText("DEL");
     fireEvent.click(deleteButtons[0]);
@@ -420,7 +420,7 @@ describe("AdminPage", () => {
     });
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/MANAGE IMAGES/i)).toBeInTheDocument();
+      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
     });
     const checkboxes = screen.queryAllByRole("checkbox");
     if (checkboxes[0]) {
@@ -458,7 +458,7 @@ describe("AdminPage", () => {
       .mockRejectedValueOnce(new Error("fetch error"));
     render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/MANAGE IMAGES/i)).toBeInTheDocument();
+      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
     });
     // Find the first move button (should exist with two images)
     const moveButton = screen
@@ -496,7 +496,7 @@ describe("AdminPage", () => {
     });
     const { container } = render(<AdminPage />);
     await waitFor(() => {
-      expect(screen.getByText(/MANAGE IMAGES/i)).toBeInTheDocument();
+      expect(screen.getByText(/SAVE SELECTION/i)).toBeInTheDocument();
     });
     const fileInput = container.querySelector("input[data-image]") as HTMLInputElement;
     const file = new File(["test"], "test.jpg", { type: "image/jpeg" });

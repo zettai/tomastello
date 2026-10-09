@@ -63,7 +63,7 @@ function LoginForm() {
             <form className="space-y-4" onSubmit={handleMagicLink}>
               <div className="space-y-2">
                 <label htmlFor="email" className="block text-sm text-foreground">
-                  EMAIL ADDRESS:
+                  Email address
                 </label>
                 <input
                   id="email"
@@ -79,13 +79,13 @@ function LoginForm() {
               </div>
 
               {error && (
-                <div className="p-2 bg-background-tertiary text-foreground text-sm text-center border-2 border-foreground">
-                  ! ERROR: {error}
+                <div role="alert" className="form-error p-2 bg-background-tertiary text-sm text-center">
+                  {error}
                 </div>
               )}
 
               {linkMessage && (
-                <div className="p-2 bg-background-tertiary text-foreground text-sm text-center border-2 border-foreground">
+                <div role="status" className="form-status p-2 bg-background-tertiary text-sm text-center">
                   {linkMessage}
                 </div>
               )}

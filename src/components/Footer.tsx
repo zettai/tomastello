@@ -14,14 +14,9 @@ export function Footer() {
   return (
     <footer className="mt-8 py-6 border-t border-border" style={{ backgroundColor: 'var(--background-tertiary)' }}>
       <div className="max-w-4xl mx-auto px-4 text-center">
-        <div className="retro-window inline-block min-w-[300px]">
-          <div className="retro-title-bar">[ COPYRIGHT.TXT ]</div>
-          <div className="p-4">
-            <p className="text-sm text-foreground font-mono">
-              © {currentYear} Tomás Tello. All rights reserved.
-            </p>
-          </div>
-        </div>
+        <p className="text-sm text-foreground-secondary">
+          © {currentYear} Tomás Tello. All rights reserved.
+        </p>
       </div>
     </footer>
   );

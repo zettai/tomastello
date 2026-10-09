@@ -5,6 +5,9 @@ jest.mock("next/font/google", () => ({
   Space_Mono: () => ({
     variable: "--font-space-mono",
   }),
+  IBM_Plex_Mono: () => ({
+    variable: "--font-plex-mono",
+  }),
 }));
 
 describe("RootLayout", () => {

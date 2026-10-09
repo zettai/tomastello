@@ -206,7 +206,7 @@ export function ConfirmDeleteModal({
         </button>
         <button
           type="button"
-          className="admin-button"
+          className="admin-button admin-button-danger"
           data-destructive=""
           onClick={onConfirm}
         >

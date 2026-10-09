@@ -27,6 +27,8 @@ export default function PhotoGalleryClient({ photos }: { photos: Photo[] }) {
     setSelectedIndex(index);
   };
 
+  if (photos.length === 0) return null;
+
   return (
     <>
       <div className="retro-window">

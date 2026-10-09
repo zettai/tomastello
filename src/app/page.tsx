@@ -26,7 +26,14 @@ export default async function Home() {
   return (
     <div className="min-h-screen p-4 sm:p-8" style={{ backgroundColor: "var(--background-tertiary)" }}>
       <main className="max-w-4xl mx-auto space-y-4">
-        <div className="retro-window">
+        <header className="retro-window">
+          <div className="retro-title-bar">[ TOMAS_TELLO.EXE ]</div>
+          <h1 className="px-4 py-5 text-3xl sm:text-4xl font-bold text-foreground" style={{ fontFamily: "var(--font-space-mono), monospace" }}>
+            Tomás Tello
+          </h1>
+        </header>
+
+        <div className="retro-window retro-window-featured">
           <div className="retro-title-bar">[ LIVE_RADIO.EXE ]</div>
           <div className="p-4 text-center">
             <a
@@ -37,7 +44,7 @@ export default async function Home() {
             >
               &gt;&gt; ECCOS DEL FUTURO &lt;&lt;
             </a>
-            <p className="mt-3 text-xs text-foreground-secondary">
+            <p lang="es" className="mt-3 mx-auto max-w-[70ch] text-sm leading-relaxed text-foreground-secondary">
               [ todos los días, de 7:30 a 10:00 AM paso música, audiolibros y cualquier cosa. Eccos del Futuro es un
               espacio radial propuesto por Mauricio Banda, co-operador en Andesground ]
             </p>
@@ -47,8 +54,7 @@ export default async function Home() {
         <div className="retro-window">
           <div className="retro-title-bar">[ ABOUT.TXT ]</div>
           <section
-            className="retro-inset p-4 m-2 bg-background text-foreground overflow-auto max-h-96 focus:outline focus:outline-2 focus:outline-offset-2"
-            tabIndex={0}
+            className="retro-inset p-4 m-2 bg-background text-foreground leading-relaxed"
             aria-label="About Tomás Tello"
           >
             <AboutMarkdown content={aboutContent} />

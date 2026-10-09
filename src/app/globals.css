@@ -17,13 +17,14 @@
   /* Text */
   --foreground: #efefef;
   --foreground-secondary: #a0a0a0;
-  --foreground-tertiary: #666666;
+  --foreground-tertiary: #8a8a8a;
 
   /* Borders */
   --border: #2a2a2a;
   --border-light: #3a3a3a;
   --border-dark: #1a1a1a;
   --border-focus: #9ef01a;
+  --window-shadow: #050505;
 
   /* Title bar */
   --title-bar-bg: #111111;
@@ -47,7 +48,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-space-mono), 'Courier New', monospace;
+  font-family: var(--font-plex-mono), 'Courier New', monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -60,6 +61,12 @@ audio {
 .retro-window {
   border: 1px solid var(--border);
   background: var(--background-secondary);
+  box-shadow: 4px 4px 0 var(--window-shadow);
+}
+
+/* The live radio is the main thing on the page */
+.retro-window-featured {
+  border-color: var(--color-primary);
 }
 
 .retro-inset {
@@ -69,6 +76,7 @@ audio {
 
 /* Buttons */
 .retro-button {
+  font-family: var(--font-space-mono), monospace;
   border: 1px solid var(--border-light);
   background: transparent;
   color: var(--foreground);
@@ -89,6 +97,7 @@ audio {
 
 /* Title bars */
 .retro-title-bar {
+  font-family: var(--font-space-mono), monospace;
   background: var(--title-bar-bg);
   color: var(--title-bar-text);
   padding: 6px 10px;
@@ -128,9 +137,11 @@ audio {
 .admin-window {
   border: 1px solid var(--border);
   background: var(--admin-bg-secondary);
+  box-shadow: 4px 4px 0 var(--window-shadow);
 }
 
 .admin-title-bar {
+  font-family: var(--font-space-mono), monospace;
   background: var(--admin-title-bg);
   color: var(--admin-title-text);
   padding: 6px 10px;
@@ -140,6 +151,7 @@ audio {
 }
 
 .admin-button {
+  font-family: var(--font-space-mono), monospace;
   border: 1px solid var(--admin-border-light);
   background: transparent;
   color: var(--admin-text);
@@ -152,6 +164,25 @@ audio {
 .admin-button:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+}
+
+.retro-button:focus-visible,
+.admin-button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Destructive confirm (delete) */
+.admin-button-danger {
+  border-color: var(--admin-error);
+  color: var(--admin-error);
+}
+
+.admin-button-danger:hover {
+  background: var(--admin-error);
+  border-color: var(--admin-error);
+  color: #111111;
 }
 
 .admin-button:active {
@@ -265,6 +296,17 @@ audio {
 
 .overlay-modal-body {
   padding: 1rem;
+}
+
+/* Login / form messages */
+.form-error {
+  border: 1px solid var(--admin-error);
+  color: var(--admin-error);
+}
+
+.form-status {
+  border: 1px solid var(--color-primary);
+  color: var(--foreground);
 }
 
 .sr-only {

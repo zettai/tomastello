@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Mono } from "next/font/google";
+import { IBM_Plex_Mono, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { Footer } from "@/components/Footer";
 
@@ -7,6 +7,12 @@ const spaceMono = Space_Mono({
   subsets: ["latin"],
   weight: ["400", "700"],
   variable: "--font-space-mono",
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  variable: "--font-plex-mono",
 });
 
 export const metadata: Metadata = {
@@ -55,8 +61,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`dark ${spaceMono.variable}`}>
-      <body className={"antialiased min-w-[350px]"}>
+    <html lang="en" className={`dark ${spaceMono.variable} ${plexMono.variable}`}>
+      <body className="antialiased">
         {children}
         <Footer />
       </body>

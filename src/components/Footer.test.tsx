@@ -20,7 +20,7 @@ describe("Footer", () => {
 
     render(<Footer />);
 
-    expect(screen.getByText(/COPYRIGHT.TXT/i)).toBeInTheDocument();
+    expect(screen.getByText(/All rights reserved/i)).toBeInTheDocument();
     expect(
       screen.getByText(`© ${currentYear} Tomás Tello. All rights reserved.`)
     ).toBeInTheDocument();
@@ -53,7 +53,7 @@ describe("Footer", () => {
 
     render(<Footer />);
 
-    expect(screen.getByText(/COPYRIGHT.TXT/i)).toBeInTheDocument();
+    expect(screen.getByText(/All rights reserved/i)).toBeInTheDocument();
   });
 
   it("handles null pathname gracefully", () => {
@@ -62,7 +62,7 @@ describe("Footer", () => {
     render(<Footer />);
 
     // Should render footer when pathname is null (default case)
-    expect(screen.getByText(/COPYRIGHT.TXT/i)).toBeInTheDocument();
+    expect(screen.getByText(/All rights reserved/i)).toBeInTheDocument();
   });
 
   it("has correct footer structure with retro styling", () => {
@@ -73,7 +73,7 @@ describe("Footer", () => {
     const footer = screen.getByRole("contentinfo");
     expect(footer).toHaveClass("mt-8", "py-6", "border-t", "border-border");
 
-    const titleBar = screen.getByText(/COPYRIGHT.TXT/i);
-    expect(titleBar).toHaveClass("retro-title-bar");
+    // A plain line, not a window: the footer stays quieter than the content.
+    expect(footer.querySelector(".retro-window")).toBeNull();
   });
 });
