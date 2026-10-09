@@ -1,6 +1,8 @@
 import { DELETE } from "./route";
 import { scalewayClient } from "@/lib/api";
+import { purgePublicPages } from "@/lib/cdn";
 import { getMetadataByFileName, deleteImageMetadata } from "@/lib/metadata";
+import { removeSitePhotoByKey } from "@/lib/site";
 import { verifyToken } from "@/lib/auth";
 import { ConflictError } from "@/lib/jsonStore";
 
@@ -53,6 +55,14 @@ jest.mock("@/lib/api", () => ({
 jest.mock("@/lib/metadata", () => ({
   getMetadataByFileName: jest.fn(),
   deleteImageMetadata: jest.fn(),
+}));
+
+jest.mock("@/lib/site", () => ({
+  removeSitePhotoByKey: jest.fn(),
+}));
+
+jest.mock("@/lib/cdn", () => ({
+  purgePublicPages: jest.fn(),
 }));
 
 describe("DELETE /api/images/delete", () => {
@@ -127,6 +137,8 @@ describe("DELETE /api/images/delete", () => {
     });
     (deleteImageMetadata as jest.Mock).mockResolvedValueOnce({});
     (scalewayClient.send as jest.Mock).mockResolvedValueOnce({});
+    (removeSitePhotoByKey as jest.Mock).mockResolvedValueOnce(true);
+    (purgePublicPages as jest.Mock).mockResolvedValueOnce(undefined);
 
     const request = new MockNextRequest(
       "http://localhost:3000/api/images/delete?key=test.jpg",
@@ -149,6 +161,8 @@ describe("DELETE /api/images/delete", () => {
 
     expect(getMetadataByFileName).toHaveBeenCalledWith("test.jpg");
     expect(deleteImageMetadata).toHaveBeenCalledWith("test-id");
+    expect(removeSitePhotoByKey).toHaveBeenCalledWith("test.jpg");
+    expect(purgePublicPages).toHaveBeenCalled();
     expect(scalewayClient.send).toHaveBeenCalledWith(
       expect.objectContaining({
         input: {
@@ -165,6 +179,8 @@ describe("DELETE /api/images/delete", () => {
     });
     (getMetadataByFileName as jest.Mock).mockResolvedValueOnce(null);
     (scalewayClient.send as jest.Mock).mockResolvedValueOnce({});
+    (removeSitePhotoByKey as jest.Mock).mockResolvedValueOnce(false);
+    (purgePublicPages as jest.Mock).mockResolvedValueOnce(undefined);
 
     const request = new MockNextRequest(
       "http://localhost:3000/api/images/delete?key=test.jpg",
@@ -187,6 +203,8 @@ describe("DELETE /api/images/delete", () => {
 
     expect(getMetadataByFileName).toHaveBeenCalledWith("test.jpg");
     expect(deleteImageMetadata).not.toHaveBeenCalled();
+    expect(removeSitePhotoByKey).toHaveBeenCalledWith("test.jpg");
+    expect(purgePublicPages).toHaveBeenCalled();
     expect(scalewayClient.send).toHaveBeenCalledWith(
       expect.objectContaining({
         input: {

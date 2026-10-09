@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { conflictResponse } from "@/lib/storeErrors";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
+import { purgePublicPages } from "@/lib/cdn";
 import { getMetadataByFileName, deleteImageMetadata } from "@/lib/metadata";
+import { removeSitePhotoByKey } from "@/lib/site";
 import { verifyToken } from "@/lib/auth";
 
 /**
@@ -110,6 +112,9 @@ export async function DELETE(request: NextRequest) {
     });
 
     await scalewayClient.send(command);
+
+    await removeSitePhotoByKey(key);
+    await purgePublicPages();
 
     return NextResponse.json({
       success: true,

@@ -10,11 +10,15 @@ jest.mock("@/lib/audioMetadata", () => ({
 jest.mock("@/lib/auth", () => ({
   verifyToken: jest.fn(),
 }));
+jest.mock("@/lib/cdn", () => ({
+  purgePublicPages: jest.fn(),
+}));
 
 import { NextRequest } from "next/server";
 import { PUT, DELETE } from "./route";
 import { verifyToken } from "@/lib/auth";
 import { updateAudioMetadata, deleteAudioMetadata, getAudioMetadata } from "@/lib/audioMetadata";
+import { purgePublicPages } from "@/lib/cdn";
 import { scalewayClient } from "@/lib/api";
 import type { AudioMetadata } from "@/types/audio";
 import { ConflictError } from "@/lib/jsonStore";
@@ -131,11 +135,13 @@ describe("DELETE /api/audio/[id]", () => {
     (getAudioMetadata as jest.Mock).mockResolvedValueOnce([mockAudio]);
     (scalewayClient.send as jest.Mock).mockResolvedValueOnce({});
     (deleteAudioMetadata as jest.Mock).mockResolvedValueOnce(true);
+    (purgePublicPages as jest.Mock).mockResolvedValueOnce(undefined);
 
     const res = await DELETE(makeReq("tok"), makeCtx("1"));
     const data = await res.json();
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
+    expect(purgePublicPages).toHaveBeenCalled();
   });
 
   it("returns 500 on S3 error", async () => {

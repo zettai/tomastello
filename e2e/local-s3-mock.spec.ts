@@ -69,6 +69,19 @@ test("upload image and audio on moto mock without scw.cloud", async ({ page, req
     timeout: 30_000,
   });
 
+  const image404s: string[] = [];
+  page.on("response", (res) => {
+    if (res.status() === 404 && /images\//.test(res.url())) image404s.push(res.url());
+  });
+  await page.goto("/");
+  const siteRes = await request.get("/api/site");
+  const siteJson = (await siteRes.json()) as { photos?: { id: string }[] };
+  expect(siteJson.photos?.some((p) => p.id.includes("e2e-pixel"))).toBe(false);
+  await expect(page.locator('[alt*="e2e-pixel"], img[src*="e2e-pixel"]')).toHaveCount(0);
+  expect(image404s).toEqual([]);
+
+  await page.goto("/admin");
+  await expect(page.getByText(`LOGGED IN AS: ${ADMIN_EMAIL}`)).toBeVisible();
   const audioManager = page.locator("div.admin-window", { hasText: "[ AUDIO MANAGER ]" });
   await audioManager.locator(".admin-inset", { hasText: "e2e" }).first().getByRole("button", { name: "DEL" }).click();
   await expect(page.getByText("e2e tone", { exact: false })).toHaveCount(0, { timeout: 30_000 });

@@ -3,7 +3,7 @@
  */
 import { MemoryObjectStore, setObjectStoreForTests } from "./store";
 import { replaceJson } from "./jsonStore";
-import { getSiteData, saveSiteData } from "./site";
+import { getSiteData, removeSitePhotoByKey, saveSiteData } from "./site";
 import { SiteData } from "@/types/site";
 
 describe("site", () => {
@@ -38,6 +38,27 @@ describe("site", () => {
       const saved = await getSiteData();
       expect(saved.about).toEqual(mockSiteData.about);
       expect(saved.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+  });
+
+  describe("removeSitePhotoByKey", () => {
+    it("should remove photo when id matches key", async () => {
+      await replaceJson("metadata/site.json", {
+        ...mockSiteData,
+        photos: [
+          { id: "images/a.png", url: "https://cdn/a.png" },
+          { id: "images/b.png", url: "https://cdn/b.png" },
+        ],
+      });
+      await expect(removeSitePhotoByKey("images/a.png")).resolves.toBe(true);
+      const site = await getSiteData();
+      expect(site.photos).toEqual([{ id: "images/b.png", url: "https://cdn/b.png" }]);
+    });
+
+    it("should return false when no photo matches key", async () => {
+      await replaceJson("metadata/site.json", mockSiteData);
+      await expect(removeSitePhotoByKey("missing-key")).resolves.toBe(false);
+      await expect(getSiteData()).resolves.toEqual(mockSiteData);
     });
   });
 });

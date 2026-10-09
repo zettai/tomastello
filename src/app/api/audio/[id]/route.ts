@@ -7,6 +7,7 @@ import {
   deleteAudioMetadata,
   getAudioMetadata,
 } from "@/lib/audioMetadata";
+import { purgePublicPages } from "@/lib/cdn";
 import { verifyToken } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
@@ -86,6 +87,7 @@ export async function DELETE(request: NextRequest, context: Params) {
     await scalewayClient.send(s3Command);
 
     await deleteAudioMetadata(id);
+    await purgePublicPages();
 
     return NextResponse.json({
       success: true,
