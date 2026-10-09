@@ -2,7 +2,7 @@
  * @jest-environment node
  *
  * Real site/links/jsonStore stack: store that ignores If-Match must still 409
- * when the client sends a stale If-Match (app-side head pre-check).
+ * when the client sends a stale X-Site-If-Match (app-side head pre-check).
  */
 import { PUT } from "./route";
 import { verifyToken } from "@/lib/auth";
@@ -27,7 +27,7 @@ describe("PUT /api/site ETag pre-check", () => {
     setObjectStoreForTests(undefined);
   });
 
-  it("should return 409 when the store ignores If-Match but head reports a different ETag", async () => {
+  it("should return 409 when the store ignores conditionals but head reports a different ETag", async () => {
     const siteBody = JSON.stringify(
       { about: { content: "live" }, photos: [] },
       null,
@@ -63,7 +63,7 @@ describe("PUT /api/site ETag pre-check", () => {
       headers: {
         get: (name: string) => {
           const n = name.toLowerCase();
-          if (n === "if-match") return '"bogus-site"';
+          if (n === "x-site-if-match") return '"bogus-site"';
           if (n === "x-links-if-match") return '"links-live"';
           return null;
         },

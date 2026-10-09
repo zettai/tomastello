@@ -69,7 +69,11 @@ export async function GET(request: NextRequest) {
     const linksDoc = await readLinkMetadata();
     const token = request.cookies.get("auth-token")?.value;
     const headers = new Headers();
-    if (site.etag) headers.set("ETag", site.etag);
+    // X-Site-ETag: Netlify strips/rewrites standard ETag / If-Match from the browser.
+    if (site.etag) {
+      headers.set("ETag", site.etag);
+      headers.set("X-Site-ETag", site.etag);
+    }
     if (linksDoc.etag) headers.set("X-Links-ETag", linksDoc.etag);
 
     if (token && (await verifyToken(token))) {
@@ -128,7 +132,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: linksError }, { status: 400 });
     }
 
-    const siteIfMatch = request.headers.get("If-Match");
+    const siteIfMatch =
+      request.headers.get("X-Site-If-Match") ?? request.headers.get("If-Match");
     const linksIfMatch = request.headers.get("X-Links-If-Match");
     const { links, ...siteData } = data;
 

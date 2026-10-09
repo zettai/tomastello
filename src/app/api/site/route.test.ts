@@ -51,6 +51,7 @@ describe("GET /api/site", () => {
     expect(response.status).toBe(200);
     expect(data).toEqual({ ...mockData, links: mockLinks });
     expect(response.headers.get("ETag")).toBe('"site-1"');
+    expect(response.headers.get("X-Site-ETag")).toBe('"site-1"');
     expect(response.headers.get("X-Links-ETag")).toBe('"links-1"');
   });
 
@@ -174,7 +175,7 @@ describe("PUT /api/site", () => {
     (saveLinkMetadata as jest.Mock).mockResolvedValueOnce(undefined);
 
     const headers = new Map<string, string>([
-      ["If-Match", '"site-1"'],
+      ["X-Site-If-Match", '"site-1"'],
       ["X-Links-If-Match", '"links-1"'],
     ]);
     const request = {
@@ -203,7 +204,45 @@ describe("PUT /api/site", () => {
     expect(purgePublicPages).toHaveBeenCalled();
   });
 
-  it("should return 409 when If-Match site ETag does not match before write", async () => {
+  it("should return 409 when X-Site-If-Match does not match before write", async () => {
+    (verifyToken as jest.Mock).mockResolvedValueOnce({
+      email: "test@example.com",
+    });
+    (readSiteData as jest.Mock).mockResolvedValueOnce({
+      data: { about: { content: "" }, photos: [] },
+      etag: '"current-site"',
+    });
+    (readLinkMetadata as jest.Mock).mockResolvedValueOnce({
+      data: [],
+      etag: '"links-1"',
+    });
+
+    const headers = new Map<string, string>([
+      ["X-Site-If-Match", '"stale-site"'],
+      ["X-Links-If-Match", '"links-1"'],
+    ]);
+    const request = {
+      cookies: {
+        get: jest.fn().mockReturnValue({ value: "valid-token" }),
+      },
+      headers: { get: (name: string) => headers.get(name) ?? null },
+      json: jest.fn().mockResolvedValue({
+        about: { content: "Test content" },
+        photos: [],
+        links: [],
+      }),
+    } as unknown as NextRequest;
+
+    const response = await PUT(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data.error).toMatch(/Someone else saved/i);
+    expect(saveSiteData).not.toHaveBeenCalled();
+    expect(saveLinkMetadata).not.toHaveBeenCalled();
+  });
+
+  it("should return 409 when If-Match fallback site ETag does not match before write", async () => {
     (verifyToken as jest.Mock).mockResolvedValueOnce({
       email: "test@example.com",
     });
@@ -255,7 +294,7 @@ describe("PUT /api/site", () => {
     });
 
     const headers = new Map<string, string>([
-      ["If-Match", '"site-1"'],
+      ["X-Site-If-Match", '"site-1"'],
       ["X-Links-If-Match", '"stale-links"'],
     ]);
     const request = {
@@ -297,7 +336,7 @@ describe("PUT /api/site", () => {
     );
 
     const headers = new Map<string, string>([
-      ["If-Match", '"site-1"'],
+      ["X-Site-If-Match", '"site-1"'],
       ["X-Links-If-Match", '"links-1"'],
     ]);
     const request = {

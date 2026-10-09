@@ -16,8 +16,8 @@ export async function getSiteData(): Promise<SiteData> {
 
 /**
  * Conditionally replaces the site document. Pass the ETag from the GET that loaded the
- * form (`If-Match`); null means the object must not exist yet. Throws ConflictError when
- * another save won the race (routes map that to 409).
+ * form (`X-Site-If-Match`); null means the object must not exist yet. Throws ConflictError
+ * when another save won the race (routes map that to 409).
  *
  * When `expectedEtag` is omitted, writes against the current ETag (narrow server-side race
  * only) so callers that do not carry a version still get conditional puts.

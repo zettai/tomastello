@@ -151,7 +151,11 @@ describe("AdminPage", () => {
           ok: true,
           headers: {
             get: (n: string) =>
-              n === "ETag" ? '"s1"' : n === "X-Links-ETag" ? '"l1"' : null,
+              n === "X-Site-ETag" || n === "ETag"
+                ? '"s1"'
+                : n === "X-Links-ETag"
+                  ? '"l1"'
+                  : null,
           },
           json: () => Promise.resolve(mockCurrentData),
         });
@@ -180,7 +184,7 @@ describe("AdminPage", () => {
         photos: [],
         links: mockLinks,
       });
-      expect(putCall[1].headers["If-Match"]).toBe('"s1"');
+      expect(putCall[1].headers["X-Site-If-Match"]).toBe('"s1"');
       expect(screen.getByRole("status")).toHaveTextContent(/About text saved/i);
     });
   });
@@ -538,7 +542,11 @@ describe("AdminPage", () => {
     status,
     headers: {
       get: (name: string) =>
-        name === "ETag" ? '"site-etag"' : name === "X-Links-ETag" ? '"links-etag"' : null,
+        name === "X-Site-ETag" || name === "ETag"
+          ? '"site-etag"'
+          : name === "X-Links-ETag"
+            ? '"links-etag"'
+            : null,
     },
     json: () => Promise.resolve(body),
   });
@@ -659,7 +667,7 @@ describe("AdminPage", () => {
         ([url, options]) => url === "/api/site" && options?.method === "PUT"
       );
       expect(putCall).toBeDefined();
-      expect(putCall[1].headers["If-Match"]).toBe('"site-etag"');
+      expect(putCall[1].headers["X-Site-If-Match"]).toBe('"site-etag"');
       expect(screen.getByRole("status")).toHaveTextContent(/Photo shown on site/i);
     });
   });

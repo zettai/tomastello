@@ -92,7 +92,11 @@ describe("AdminSave", () => {
           ok: true,
           headers: {
             get: (n: string) =>
-              n === "ETag" ? '"s1"' : n === "X-Links-ETag" ? '"l1"' : null,
+              n === "X-Site-ETag" || n === "ETag"
+                ? '"s1"'
+                : n === "X-Links-ETag"
+                  ? '"l1"'
+                  : null,
           },
           json: () => Promise.resolve({ about: { content: "" }, photos: [] }),
         });
@@ -110,7 +114,7 @@ describe("AdminSave", () => {
       ([url, opts]) => url === "/api/site" && opts?.method === "PUT"
     );
     expect(put).toBeDefined();
-    expect(put[1].headers["If-Match"]).toBe('"s1"');
+    expect(put[1].headers["X-Site-If-Match"]).toBe('"s1"');
   });
 
   it("should enqueue undo through the same queue when Undo is clicked", async () => {
