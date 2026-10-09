@@ -11,7 +11,7 @@ const spaceMono = Space_Mono({
 
 const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  weight: ["400", "600"],
+  weight: ["400", "500", "600"],
   variable: "--font-plex-mono",
 });
 

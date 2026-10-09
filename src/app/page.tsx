@@ -28,7 +28,7 @@ export default async function Home() {
       <main className="max-w-4xl mx-auto space-y-4">
         <header className="retro-window">
           <div className="retro-title-bar">[ TOMAS_TELLO.EXE ]</div>
-          <h1 className="px-4 py-5 text-3xl sm:text-4xl font-bold text-foreground" style={{ fontFamily: "var(--font-space-mono), monospace" }}>
+          <h1 className="px-4 py-5 text-2xl sm:text-3xl font-medium uppercase tracking-[0.3em] text-foreground">
             Tomás Tello
           </h1>
         </header>
