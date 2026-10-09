@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -32,7 +33,101 @@ export interface AdminToastApi {
 
 const AdminToastContext = createContext<AdminToastApi | null>(null);
 
-const AUTO_DISMISS_MS = 4000;
+const PLAIN_SUCCESS_MS = 4000;
+const UNDO_SUCCESS_MS = 10000;
+const ERROR_MS = 10000;
+
+function dismissMs(toast: ToastItem): number {
+  if (toast.kind === "error") return ERROR_MS;
+  if (toast.onUndo) return UNDO_SUCCESS_MS;
+  return PLAIN_SUCCESS_MS;
+}
+
+/** Single toast with auto-dismiss; pauses while hovered or focused. */
+function ToastCard({
+  toast,
+  onDismiss,
+}: Readonly<{
+  toast: ToastItem;
+  onDismiss: (id: number) => void;
+}>) {
+  const remainingRef = useRef(dismissMs(toast));
+  const startedAtRef = useRef<number | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const pausedRef = useRef(false);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const armTimer = useCallback(() => {
+    clearTimer();
+    if (pausedRef.current || remainingRef.current <= 0) return;
+    startedAtRef.current = Date.now();
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      onDismiss(toast.id);
+    }, remainingRef.current);
+  }, [clearTimer, onDismiss, toast.id]);
+
+  useEffect(() => {
+    remainingRef.current = dismissMs(toast);
+    pausedRef.current = false;
+    armTimer();
+    return clearTimer;
+  }, [toast, armTimer, clearTimer]);
+
+  const pause = () => {
+    if (pausedRef.current) return;
+    pausedRef.current = true;
+    if (startedAtRef.current !== null) {
+      const elapsed = Date.now() - startedAtRef.current;
+      remainingRef.current = Math.max(0, remainingRef.current - elapsed);
+      startedAtRef.current = null;
+    }
+    clearTimer();
+  };
+
+  const resume = () => {
+    if (!pausedRef.current) return;
+    pausedRef.current = false;
+    armTimer();
+  };
+
+  return (
+    <div
+      role={toast.kind === "error" ? "alert" : "status"}
+      className={`admin-toast admin-window ${toast.kind === "error" ? "admin-toast-error" : "admin-toast-success"}`}
+      onMouseEnter={pause}
+      onMouseLeave={resume}
+      onFocus={pause}
+      onBlur={resume}
+    >
+      <div className="admin-title-bar">
+        {toast.kind === "error" ? "[ ERROR ]" : "[ OK ]"}
+      </div>
+      <div className="admin-inset p-3 m-1 admin-text text-sm flex items-start justify-between gap-3">
+        <span>{toast.message}</span>
+        {toast.onUndo && (
+          <button
+            type="button"
+            className="admin-button text-xs shrink-0"
+            onClick={() => {
+              const undo = toast.onUndo;
+              onDismiss(toast.id);
+              undo?.();
+            }}
+          >
+            Undo
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /** Retro fixed toast stack (top-right); success uses role=status, errors use role=alert. */
 function ToastList({
@@ -42,47 +137,13 @@ function ToastList({
   toasts: ToastItem[];
   onDismiss: (id: number) => void;
 }>) {
-  useEffect(() => {
-    if (toasts.length === 0) return;
-    const timers = toasts.map((t) =>
-      window.setTimeout(() => onDismiss(t.id), AUTO_DISMISS_MS)
-    );
-    return () => {
-      for (const id of timers) window.clearTimeout(id);
-    };
-  }, [toasts, onDismiss]);
-
   if (toasts.length === 0) return null;
 
   return (
     <Portal>
       <div className="admin-toast-stack" aria-live="polite">
         {toasts.map((t) => (
-          <div
-            key={t.id}
-            role={t.kind === "error" ? "alert" : "status"}
-            className={`admin-toast admin-window ${t.kind === "error" ? "admin-toast-error" : "admin-toast-success"}`}
-          >
-            <div className="admin-title-bar">
-              {t.kind === "error" ? "[ ERROR ]" : "[ OK ]"}
-            </div>
-            <div className="admin-inset p-3 m-1 admin-text text-sm flex items-start justify-between gap-3">
-              <span>{t.message}</span>
-              {t.onUndo && (
-                <button
-                  type="button"
-                  className="admin-button text-xs shrink-0"
-                  onClick={() => {
-                    const undo = t.onUndo;
-                    onDismiss(t.id);
-                    undo?.();
-                  }}
-                >
-                  Undo
-                </button>
-              )}
-            </div>
-          </div>
+          <ToastCard key={t.id} toast={t} onDismiss={onDismiss} />
         ))}
       </div>
     </Portal>

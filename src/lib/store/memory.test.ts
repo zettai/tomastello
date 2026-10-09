@@ -13,4 +13,12 @@ describe("MemoryObjectStore", () => {
     await store.put("a", '{"v":2}', { ifMatch: first!.etag! });
     await expect(store.get("a")).resolves.toMatchObject({ body: '{"v":2}' });
   });
+
+  it("should return etag from head without requiring get", async () => {
+    const store = new MemoryObjectStore();
+    await expect(store.head("missing")).resolves.toBeNull();
+    await store.put("a", "{}", { unconditional: true });
+    const got = await store.get("a");
+    await expect(store.head("a")).resolves.toEqual({ etag: got!.etag });
+  });
 });

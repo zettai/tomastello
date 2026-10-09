@@ -20,6 +20,12 @@ export class MemoryObjectStore implements ObjectStore {
     return { body: entry.body, etag: entry.etag };
   }
 
+  async head(key: string): Promise<{ etag: string } | null> {
+    const entry = this.objects.get(key);
+    if (!entry) return null;
+    return { etag: entry.etag };
+  }
+
   async put(key: string, body: string, options: PutObjectOptions = {}): Promise<void> {
     const current = this.objects.get(key);
     if (!options.unconditional) {

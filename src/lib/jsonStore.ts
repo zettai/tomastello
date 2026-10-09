@@ -5,11 +5,11 @@ import { StoreNotImplementedError, StorePreconditionError } from "./store/types"
 /**
  * JSON documents in the bucket with optimistic concurrency.
  *
- * Every write is conditional: `If-Match: <etag read>` for an existing document, or
- * `If-None-Match: *` when it didn't exist. If another instance saved in between, the bucket
- * answers 412 and updateJson re-reads, re-applies the change and tries again; after a few
- * attempts it throws ConflictError, which routes turn into 409. Without this, two serverless
- * instances saving at once silently lose one of the changes.
+ * Every write pre-checks the object's ETag via store.head (app-side), then sends a
+ * conditional PUT (`If-Match` / `If-None-Match`) when the bucket supports it. Scaleway
+ * ignores If-Match; the pre-check still rejects a stale expectedEtag before any PUT.
+ * If another instance saved in between, updateJson re-reads, re-applies the change and
+ * tries again; after a few attempts it throws ConflictError, which routes turn into 409.
  */
 
 const log = createLogger("jsonStore");
@@ -50,10 +50,28 @@ export async function readJson<T>(key: string, fallback: T): Promise<Versioned<T
 }
 
 /**
+ * Throws ConflictError when the stored ETag does not match `expectedEtag`
+ * (null means the object must not exist yet).
+ */
+async function assertEtagMatches(key: string, expectedEtag: string | null): Promise<void> {
+  const current = await getObjectStore().head(key);
+  if (expectedEtag === null) {
+    if (current) throw new ConflictError(key);
+    return;
+  }
+  if (!current || current.etag !== expectedEtag) {
+    throw new ConflictError(key);
+  }
+}
+
+/**
  * Writes a JSON document only if it still has `expectedEtag` (null: only if it doesn't exist).
- * Throws ConflictError when the condition fails.
+ * Throws ConflictError when the condition fails. Always pre-checks via head, including when
+ * the bucket has fallen back to unconditional PUTs.
  */
 export async function writeJson(key: string, data: unknown, expectedEtag: string | null): Promise<void> {
+  await assertEtagMatches(key, expectedEtag);
+
   const body = JSON.stringify(data, null, 2);
   const store = getObjectStore();
   const options =
@@ -68,7 +86,8 @@ export async function writeJson(key: string, data: unknown, expectedEtag: string
     if (error instanceof StorePreconditionError) throw new ConflictError(key);
     if (error instanceof StoreNotImplementedError && !conditionalWritesUnsupported) {
       conditionalWritesUnsupported = true;
-      log.error("Bucket refused conditional writes; concurrent saves are no longer protected", { key });
+      log.error("Bucket refused conditional writes; concurrent saves rely on app-side ETag pre-check", { key });
+      await assertEtagMatches(key, expectedEtag);
       await store.put(key, body, { contentType: "application/json", unconditional: true });
       return;
     }

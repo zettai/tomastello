@@ -29,5 +29,7 @@ export type PutObjectOptions = {
 
 export interface ObjectStore {
   get(key: string): Promise<ObjectBody | null>;
+  /** ETag only (no body). Null when the object does not exist. */
+  head(key: string): Promise<{ etag: string } | null>;
   put(key: string, body: string, options?: PutObjectOptions): Promise<void>;
 }

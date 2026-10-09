@@ -170,6 +170,8 @@ function ImageManager({
   const { saveSite } = useAdminSave();
   const [images, setImages] = useState<ImageListItem[]>([]);
   const [onSiteKeys, setOnSiteKeys] = useState<string[]>([]);
+  const onSiteKeysRef = useRef(onSiteKeys);
+  onSiteKeysRef.current = onSiteKeys;
   const [loading, setLoading] = useState(true);
   const [isReordering, setIsReordering] = useState(false);
   const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null);
@@ -284,13 +286,14 @@ function ImageManager({
 
   const moveOnSite = (index: number, direction: "up" | "down") => {
     if (isReordering) return;
+    const previous = onSiteKeysRef.current;
     const newIndex = direction === "up" ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= onSiteKeys.length) return;
+    if (newIndex < 0 || newIndex >= previous.length) return;
 
     setIsReordering(true);
-    const previous = onSiteKeys;
-    const next = [...onSiteKeys];
+    const next = [...previous];
     [next[index], next[newIndex]] = [next[newIndex], next[index]];
+    onSiteKeysRef.current = next;
     setOnSiteKeys(next);
     persistPhotos(next, previous, "Photo order saved");
     requestAnimationFrame(() => {
@@ -320,21 +323,23 @@ function ImageManager({
   }, [onSiteKeys]);
 
   const hidePhoto = (key: string) => {
-    if (!onSiteKeys.includes(key)) return;
-    const previous = onSiteKeys;
-    const next = onSiteKeys.filter((k) => k !== key);
+    const previous = onSiteKeysRef.current;
+    if (!previous.includes(key)) return;
+    const next = previous.filter((k) => k !== key);
     focusKeyRef.current = key;
     focusActionRef.current = "show";
+    onSiteKeysRef.current = next;
     setOnSiteKeys(next);
     persistPhotos(next, previous, "Photo hidden");
   };
 
   const showPhoto = (key: string) => {
-    if (onSiteKeys.includes(key)) return;
-    const previous = onSiteKeys;
-    const next = [...onSiteKeys, key];
+    const previous = onSiteKeysRef.current;
+    if (previous.includes(key)) return;
+    const next = [...previous, key];
     focusKeyRef.current = key;
     focusActionRef.current = "hide";
+    onSiteKeysRef.current = next;
     setOnSiteKeys(next);
     persistPhotos(next, previous, "Photo shown on site");
   };

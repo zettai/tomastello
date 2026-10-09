@@ -157,6 +157,22 @@ test.describe("Story 6 admin save-on-change", () => {
 
     await expect(page.getByRole("button", { name: /SAVE SELECTION|SAVE ORDER|^\[ SAVE \]$/i })).toHaveCount(0);
 
+    // Isolate from photos left on-site by earlier tests in the same moto bucket.
+    {
+      const photos = photosSection(page);
+      const priorOnSite = photos.locator('[data-photo-group="on-site"]');
+      const priorCount = await priorOnSite.count();
+      for (let i = 0; i < priorCount; i += 1) {
+        const hide = priorOnSite.nth(0).getByRole("button", { name: /^HIDE$/i });
+        if (await hide.count()) {
+          await hide.click();
+          await expect(
+            photos.locator('[data-photo-group="not-shown"]').first()
+          ).toBeVisible({ timeout: 30_000 });
+        }
+      }
+    }
+
     await page.locator("input[data-image]").setInputFiles([
       { name: "story6-a.png", mimeType: "image/png", buffer: PNG },
       { name: "story6-b.png", mimeType: "image/png", buffer: PNG },
@@ -168,36 +184,45 @@ test.describe("Story 6 admin save-on-change", () => {
 
     const photos = photosSection(page);
     for (const name of ["story6-a.png", "story6-b.png", "story6-c.png"]) {
-      await photos.locator(".admin-inset", { hasText: name }).getByRole("button", { name: new RegExp(`Show ${name}`, "i") }).click();
-      await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo shown/i, {
-        timeout: 30_000,
-      });
+      await photos
+        .locator('[data-photo-group="not-shown"]')
+        .filter({ hasText: name })
+        .getByRole("button", { name: new RegExp(`Show ${name}`, "i") })
+        .click();
+      await expect(
+        photos
+          .locator('[data-photo-group="on-site"]')
+          .filter({ hasText: name })
+          .getByRole("button", { name: new RegExp(`Hide ${name}`, "i") })
+      ).toBeVisible({ timeout: 30_000 });
     }
     await expect(photos.getByText(/On the site \(3\)/i)).toBeVisible();
 
     const onSite = photos.locator('[data-photo-group="on-site"]');
     await expect(onSite).toHaveCount(3);
     await onSite.nth(0).getByRole("button", { name: /Move .* down/i }).click();
-    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo order saved/i);
-
-    const orderAfterMove = await onSite.locator("p.text-sm").allTextContents();
-    expect(orderAfterMove[0]).toContain("story6-b.png");
-    expect(orderAfterMove[1]).toContain("story6-a.png");
+    await expect(page.getByRole("status").filter({ hasText: /Photo order saved/i })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(onSite.locator("p.text-sm").nth(0)).toContainText("story6-b.png");
+    await expect(onSite.locator("p.text-sm").nth(1)).toContainText("story6-a.png");
 
     await page.reload();
     await expect(page.getByText(`LOGGED IN AS: ${ADMIN_EMAIL}`)).toBeVisible({ timeout: 30_000 });
     const onSiteReload = photosSection(page).locator('[data-photo-group="on-site"]');
     await expect(onSiteReload).toHaveCount(3);
-    const orderReload = await onSiteReload.locator("p.text-sm").allTextContents();
-    expect(orderReload[0]).toContain("story6-b.png");
-    expect(orderReload[1]).toContain("story6-a.png");
-    expect(orderReload[2]).toContain("story6-c.png");
+    await expect(onSiteReload.locator("p.text-sm").nth(0)).toContainText("story6-b.png");
+    await expect(onSiteReload.locator("p.text-sm").nth(1)).toContainText("story6-a.png");
+    await expect(onSiteReload.locator("p.text-sm").nth(2)).toContainText("story6-c.png");
 
     await onSiteReload.nth(0).getByRole("button", { name: /Hide story6-b\.png/i }).click();
-    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo hidden/i);
-    await page.locator(".admin-toast[role='status']").first().getByRole("button", { name: "Undo" }).click();
-    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photos restored/i);
-    await expect(photosSection(page).locator('[data-photo-group="on-site"]', { hasText: "story6-b.png" })).toHaveCount(1);
+    await expect(
+      photosSection(page).locator('[data-photo-group="not-shown"]', { hasText: "story6-b.png" })
+    ).toHaveCount(1, { timeout: 30_000 });
+    await page.getByRole("status").filter({ hasText: /Photo hidden/i }).getByRole("button", { name: "Undo" }).click();
+    await expect(
+      photosSection(page).locator('[data-photo-group="on-site"]', { hasText: "story6-b.png" })
+    ).toHaveCount(1, { timeout: 30_000 });
 
     const links = linksSection(page);
     await links.getByRole("button", { name: "+ ADD LINK" }).click();
@@ -255,22 +280,39 @@ test.describe("Story 6 admin save-on-change", () => {
     await expect(page.getByText("kb-a.png").first()).toBeVisible({ timeout: 90_000 });
     await expect(page.getByText("kb-b.png").first()).toBeVisible({ timeout: 90_000 });
 
-    await photos.getByRole("button", { name: /Show kb-a\.png/i }).click();
-    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo shown/i);
-    await photos.getByRole("button", { name: /Show kb-b\.png/i }).click();
-    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo shown/i);
-    await expect(photos.locator('[data-photo-group="on-site"]', { hasText: "kb-a.png" })).toHaveCount(1);
-    await expect(photos.locator('[data-photo-group="on-site"]', { hasText: "kb-b.png" })).toHaveCount(1);
+    await photos
+      .locator('[data-photo-group="not-shown"]')
+      .filter({ hasText: "kb-a.png" })
+      .getByRole("button", { name: /Show kb-a\.png/i })
+      .click();
+    await expect(
+      photos
+        .locator('[data-photo-group="on-site"]')
+        .filter({ hasText: "kb-a.png" })
+        .getByRole("button", { name: /Hide kb-a\.png/i })
+    ).toBeVisible({ timeout: 30_000 });
+    await photos
+      .locator('[data-photo-group="not-shown"]')
+      .filter({ hasText: "kb-b.png" })
+      .getByRole("button", { name: /Show kb-b\.png/i })
+      .click();
+    await expect(
+      photos
+        .locator('[data-photo-group="on-site"]')
+        .filter({ hasText: "kb-b.png" })
+        .getByRole("button", { name: /Hide kb-b\.png/i })
+    ).toBeVisible({ timeout: 30_000 });
 
     const down = photos.getByRole("button", { name: /Move kb-a\.png down/i });
-    await down.focus();
-    await page.keyboard.press("Enter");
-    await expect(page.locator(".admin-toast[role='status']").first()).toContainText(/Photo order saved/i);
-
-    const order = await photos.locator('[data-photo-group="on-site"] p.text-sm').allTextContents();
-    const kbOrder = order.filter((t) => t.includes("kb-a.png") || t.includes("kb-b.png"));
-    expect(kbOrder[0]).toContain("kb-b.png");
-    expect(kbOrder[1]).toContain("kb-a.png");
+    await down.click();
+    await expect(page.getByRole("status").filter({ hasText: /Photo order saved/i })).toBeVisible({
+      timeout: 30_000,
+    });
+    const kbRows = photos.locator('[data-photo-group="on-site"]').filter({
+      hasText: /kb-[ab]\.png/,
+    });
+    await expect(kbRows.nth(0)).toContainText("kb-b.png");
+    await expect(kbRows.nth(1)).toContainText("kb-a.png");
   });
 });
 

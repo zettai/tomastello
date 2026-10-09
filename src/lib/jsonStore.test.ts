@@ -2,10 +2,11 @@
  * @jest-environment node
  */
 import { MemoryObjectStore, setObjectStoreForTests } from "./store";
+import type { ObjectStore, PutObjectOptions } from "./store/types";
+import { StoreNotImplementedError, StorePreconditionError } from "./store/types";
 import {
   backoffMs,
   ConflictError,
-  MAX_ATTEMPTS,
   readJson,
   resetConditionalWriteSupportForTests,
   updateJson,
@@ -52,6 +53,73 @@ describe("jsonStore", () => {
       await expect(readJson("k", {})).resolves.toEqual({ data: { a: 1 }, etag: expect.any(String) });
       await expect(writeJson("k", { a: 2 }, null)).rejects.toBeInstanceOf(ConflictError);
     });
+
+    it("should throw ConflictError without PUT when expectedEtag mismatches", async () => {
+      await store.put("k", JSON.stringify([1]), { contentType: "application/json", unconditional: true });
+      const put = jest.spyOn(store, "put");
+      await expect(writeJson("k", [2], '"bogus"')).rejects.toBeInstanceOf(ConflictError);
+      expect(put).not.toHaveBeenCalled();
+    });
+
+    it("should PUT when expectedEtag matches", async () => {
+      await store.put("k", JSON.stringify([1]), { contentType: "application/json", unconditional: true });
+      const { etag } = await readJson("k", []);
+      const put = jest.spyOn(store, "put");
+      await writeJson("k", [2], etag);
+      expect(put).toHaveBeenCalledWith(
+        "k",
+        expect.any(String),
+        expect.objectContaining({ ifMatch: etag })
+      );
+    });
+
+    it("should throw ConflictError without PUT when creating but the object exists", async () => {
+      await store.put("k", JSON.stringify([1]), { contentType: "application/json", unconditional: true });
+      const put = jest.spyOn(store, "put");
+      await expect(writeJson("k", [2], null)).rejects.toBeInstanceOf(ConflictError);
+      expect(put).not.toHaveBeenCalled();
+    });
+
+    it("should reject via pre-check when the store ignores If-Match", async () => {
+      let etag = '"real-1"';
+      let body = JSON.stringify([1]);
+      const put = jest.fn(async (_key: string, next: string) => {
+        body = next;
+        etag = '"real-2"';
+      });
+      const ignoringStore: ObjectStore = {
+        get: async () => ({ body, etag }),
+        head: async () => ({ etag }),
+        put,
+      };
+      setObjectStoreForTests(ignoringStore);
+      await expect(writeJson("k", [2], '"bogus"')).rejects.toBeInstanceOf(ConflictError);
+      expect(put).not.toHaveBeenCalled();
+    });
+
+    it("should pre-check before unconditional PUT when conditional writes are unsupported", async () => {
+      let etag = '"real-1"';
+      let body = JSON.stringify([1]);
+      const put = jest.fn(async (key: string, next: string, options?: PutObjectOptions) => {
+        if (!options?.unconditional) {
+          throw new StoreNotImplementedError("conditional writes");
+        }
+        body = next;
+        etag = '"real-2"';
+      });
+      setObjectStoreForTests({
+        get: async () => ({ body, etag }),
+        head: async () => ({ etag }),
+        put,
+      });
+      await expect(writeJson("k", [2], '"bogus"')).rejects.toBeInstanceOf(ConflictError);
+      expect(put).not.toHaveBeenCalled();
+
+      resetConditionalWriteSupportForTests();
+      etag = '"real-1"';
+      await writeJson("k", [2], '"real-1"');
+      expect(put).toHaveBeenCalled();
+    });
   });
 
   describe("updateJson", () => {
@@ -65,8 +133,9 @@ describe("jsonStore", () => {
     it("should throw after MAX_ATTEMPTS conflicts", async () => {
       setObjectStoreForTests({
         get: async () => ({ body: "[]", etag: '"stale"' }),
+        head: async () => ({ etag: '"fresh"' }),
         put: async () => {
-          throw new (await import("./store/types")).StorePreconditionError("k");
+          throw new StorePreconditionError("k");
         },
       });
       await expect(updateJson("k", [] as number[], () => [1])).rejects.toBeInstanceOf(ConflictError);

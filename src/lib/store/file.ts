@@ -44,6 +44,17 @@ export class FileObjectStore implements ObjectStore {
     }
   }
 
+  async head(key: string): Promise<{ etag: string } | null> {
+    try {
+      const etag = (await readFile(this.etagPath(key), "utf8")).trim();
+      if (!etag) return null;
+      return { etag };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw error;
+    }
+  }
+
   async put(key: string, body: string, options: PutObjectOptions = {}): Promise<void> {
     const current = await this.get(key);
     if (!options.unconditional) {

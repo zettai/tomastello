@@ -1,10 +1,17 @@
-import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { SCALEWAY_BUCKET, scalewayClient } from "../api";
 import type { ObjectBody, ObjectStore, PutObjectOptions } from "./types";
 import { StoreNotImplementedError, StorePreconditionError } from "./types";
 
 function errorName(error: unknown): string | undefined {
   return (error as { name?: string })?.name;
+}
+
+function isMissingKey(error: unknown): boolean {
+  const name = errorName(error);
+  if (name === "NoSuchKey" || name === "NotFound") return true;
+  const status = (error as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+  return status === 404;
 }
 
 /** Production store: Scaleway object storage (existing bucket). */
@@ -15,7 +22,18 @@ export class S3ObjectStore implements ObjectStore {
       if (!res.Body) return { body: "", etag: res.ETag ?? null };
       return { body: await res.Body.transformToString(), etag: res.ETag ?? null };
     } catch (error) {
-      if (errorName(error) === "NoSuchKey") return null;
+      if (isMissingKey(error)) return null;
+      throw error;
+    }
+  }
+
+  async head(key: string): Promise<{ etag: string } | null> {
+    try {
+      const res = await scalewayClient.send(new HeadObjectCommand({ Bucket: SCALEWAY_BUCKET, Key: key }));
+      if (!res.ETag) return null;
+      return { etag: res.ETag };
+    } catch (error) {
+      if (isMissingKey(error)) return null;
       throw error;
     }
   }
