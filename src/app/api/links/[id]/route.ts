@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { linkIdParamSchema, linkUpdateBodySchema } from "@/lib/apiSchemas";
 import { conflictResponse } from "@/lib/storeErrors";
 import { verifyToken } from "@/lib/auth";
 import { updateLinkMetadata } from "@/lib/links";
+import { parseJsonBody, parseParams } from "@/lib/validateRequest";
 
 // PUT /api/links/[id] - Update link (auth required)
 export async function PUT(
@@ -23,46 +25,13 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const { id } = await params;
-    if (!id) {
-      return NextResponse.json(
-        { error: "Link ID is required" },
-        { status: 400 }
-      );
-    }
+    const routeParams = parseParams(await params, linkIdParamSchema);
+    if (!routeParams.ok) return routeParams.response;
+    const { id } = routeParams.data;
 
-    // Parse request body
-    const updates = await request.json();
-
-    // Validate required fields if being updated
-    if (updates.text !== undefined && !updates.text) {
-      return NextResponse.json(
-        { error: "Text cannot be empty" },
-        { status: 400 }
-      );
-    }
-
-    if (updates.href !== undefined && !updates.href) {
-      return NextResponse.json(
-        { error: "Href cannot be empty" },
-        { status: 400 }
-      );
-    }
-
-    // Validate types if being updated
-    if (updates.text !== undefined && typeof updates.text !== "string") {
-      return NextResponse.json(
-        { error: "Text must be a string" },
-        { status: 400 }
-      );
-    }
-
-    if (updates.href !== undefined && typeof updates.href !== "string") {
-      return NextResponse.json(
-        { error: "Href must be a string" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseJsonBody(request, linkUpdateBodySchema);
+    if (!parsed.ok) return parsed.response;
+    const updates = parsed.data;
 
     const updatedLink = await updateLinkMetadata(id, updates);
 

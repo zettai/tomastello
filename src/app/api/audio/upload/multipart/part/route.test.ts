@@ -58,7 +58,7 @@ describe("PUT /api/audio/upload/multipart/part", () => {
   it("returns 400 if uploadId is missing", async () => {
     const res = await PUT(makeRequest({ key: "audio/1-k1.mp3", partNumber: "1" }, "tok"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "uploadId, key, and partNumber are required" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if key is missing", async () => {
@@ -74,13 +74,13 @@ describe("PUT /api/audio/upload/multipart/part", () => {
   it("returns 400 if partNumber is not a number", async () => {
     const res = await PUT(makeRequest({ uploadId: "u1", key: "audio/1-k1.mp3", partNumber: "abc" }, "tok"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid partNumber" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if partNumber is 0", async () => {
     const res = await PUT(makeRequest({ uploadId: "u1", key: "audio/1-k1.mp3", partNumber: "0" }, "tok"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid partNumber" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if partNumber is negative", async () => {
@@ -144,7 +144,7 @@ describe("upload mode guards and key checks", () => {
     process.env.UPLOAD_MODE = "relay";
     const res = await PUT(makeRequest({ ...PARAMS, key }, "tok"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid key" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("should reject a part number above the S3 limit", async () => {
@@ -189,7 +189,7 @@ describe("upload mode guards and key checks", () => {
       if (size !== undefined) params.size = size;
       const res = await GET(makeRequest(params, "tok"));
       expect(res.status).toBe(400);
-      expect(await res.json()).toEqual({ error: "Invalid size" });
+      expect(await res.json()).toEqual({ error: "Invalid request" });
     }
   );
 

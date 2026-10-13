@@ -65,7 +65,7 @@ describe("PUT /api/images/metadata/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Image ID is required" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 404 if image not found", async () => {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { imageDeleteQuerySchema } from "@/lib/apiSchemas";
 import { conflictResponse } from "@/lib/storeErrors";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
@@ -6,6 +7,7 @@ import { purgePublicPages } from "@/lib/cdn";
 import { getMetadataByFileName, deleteImageMetadata } from "@/lib/metadata";
 import { removeSitePhotoByKey } from "@/lib/site";
 import { verifyToken } from "@/lib/auth";
+import { parseQuery } from "@/lib/validateRequest";
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -23,15 +25,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const key = searchParams.get("key");
-
-    if (!key) {
-      return NextResponse.json(
-        { error: "Image key is required" },
-        { status: 400 }
-      );
-    }
+    const parsed = parseQuery(
+      new URL(request.url).searchParams,
+      imageDeleteQuerySchema,
+      ["key"]
+    );
+    if (!parsed.ok) return parsed.response;
+    const { key } = parsed.data;
 
     // Find and delete metadata first
     const metadata = await getMetadataByFileName(key);

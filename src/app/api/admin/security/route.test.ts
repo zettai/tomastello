@@ -107,7 +107,7 @@ describe("POST /api/admin/security", () => {
   it("returns 400 for unknown action", async () => {
     const res = await POST(makeRequest("POST", { action: "nuke" }, "tok"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Unknown action" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("calls unlockSystem and returns success for action:unlock", async () => {

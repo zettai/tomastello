@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { multipartAbortQuerySchema } from "@/lib/apiSchemas";
 import { AbortMultipartUploadCommand } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
 import { verifyToken } from "@/lib/auth";
 import { createLogger } from "@/lib/logger";
-import { isUploadKey } from "@/lib/uploads";
+import { parseQuery } from "@/lib/validateRequest";
 
 const log = createLogger("audio/upload/multipart/abort");
 
@@ -18,20 +19,13 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
 
-  const { searchParams } = request.nextUrl;
-  const uploadId = searchParams.get("uploadId");
-  const key = searchParams.get("key");
-
-  if (!uploadId || !key) {
-    return NextResponse.json(
-      { error: "uploadId and key are required" },
-      { status: 400 }
-    );
-  }
-
-  if (!isUploadKey("audio", key)) {
-    return NextResponse.json({ error: "Invalid key" }, { status: 400 });
-  }
+  const parsed = parseQuery(
+    request.nextUrl.searchParams,
+    multipartAbortQuerySchema,
+    ["uploadId", "key"]
+  );
+  if (!parsed.ok) return parsed.response;
+  const { uploadId, key } = parsed.data;
 
   try {
     const command = new AbortMultipartUploadCommand({

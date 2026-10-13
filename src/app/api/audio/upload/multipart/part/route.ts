@@ -1,42 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { multipartPartPresignQuerySchema, multipartPartQuerySchema } from "@/lib/apiSchemas";
 import { UploadPartCommand } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
 import { requireUser } from "@/lib/routeAuth";
 import { presignUploadPart } from "@/lib/presign";
 import {
   getUploadMode,
-  isUploadKey,
-  MAX_PART_NUMBER,
   MAX_PART_SIZE,
   PRESIGN_EXPIRY_SECONDS,
   type UploadMode,
 } from "@/lib/uploads";
 import { createLogger } from "@/lib/logger";
+import { parseQuery } from "@/lib/validateRequest";
 
 const log = createLogger("audio/upload/multipart/part");
-
-type PartParams = { uploadId: string; key: string; partNumber: number };
-type ParamsResult = { params: PartParams; response?: undefined } | { params?: undefined; response: NextResponse };
-
-/** Validates uploadId, key and partNumber; returns them or the 400 response to send. */
-function readPartParams(request: NextRequest): ParamsResult {
-  const { searchParams } = request.nextUrl;
-  const uploadId = searchParams.get("uploadId");
-  const key = searchParams.get("key");
-  const partNumberStr = searchParams.get("partNumber");
-
-  if (!uploadId || !key || !partNumberStr) {
-    return { response: NextResponse.json({ error: "uploadId, key, and partNumber are required" }, { status: 400 }) };
-  }
-  if (!isUploadKey("audio", key)) {
-    return { response: NextResponse.json({ error: "Invalid key" }, { status: 400 }) };
-  }
-  const partNumber = Number(partNumberStr);
-  if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > MAX_PART_NUMBER) {
-    return { response: NextResponse.json({ error: "Invalid partNumber" }, { status: 400 }) };
-  }
-  return { params: { uploadId, key, partNumber } };
-}
 
 function wrongMode(mode: UploadMode): NextResponse {
   return NextResponse.json({ error: `Not available in ${mode} upload mode` }, { status: 409 });
@@ -50,9 +27,13 @@ export async function PUT(request: NextRequest) {
   const mode = getUploadMode();
   if (mode !== "relay") return wrongMode(mode);
 
-  const parsed = readPartParams(request);
-  if (parsed.response) return parsed.response;
-  const { uploadId, key, partNumber } = parsed.params;
+  const parsed = parseQuery(
+    request.nextUrl.searchParams,
+    multipartPartQuerySchema,
+    ["uploadId", "key", "partNumber"]
+  );
+  if (!parsed.ok) return parsed.response;
+  const { uploadId, key, partNumber } = parsed.data;
 
   try {
     const body = await request.arrayBuffer();
@@ -90,14 +71,13 @@ export async function GET(request: NextRequest) {
   const mode = getUploadMode();
   if (mode !== "presigned") return wrongMode(mode);
 
-  const parsed = readPartParams(request);
-  if (parsed.response) return parsed.response;
-  const { uploadId, key, partNumber } = parsed.params;
-
-  const size = Number(request.nextUrl.searchParams.get("size"));
-  if (!Number.isInteger(size) || size < 1 || size > MAX_PART_SIZE) {
-    return NextResponse.json({ error: "Invalid size" }, { status: 400 });
-  }
+  const parsed = parseQuery(
+    request.nextUrl.searchParams,
+    multipartPartPresignQuerySchema,
+    ["uploadId", "key", "partNumber", "size"]
+  );
+  if (!parsed.ok) return parsed.response;
+  const { uploadId, key, partNumber, size } = parsed.data;
 
   try {
     const url = await presignUploadPart(key, uploadId, partNumber, size);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { linkCreateBodySchema, linkDeleteQuerySchema } from "@/lib/apiSchemas";
 import { conflictResponse } from "@/lib/storeErrors";
 import { verifyToken } from "@/lib/auth";
 import { toPublicLink } from "@/lib/publicView";
@@ -7,6 +8,7 @@ import {
   addLinkMetadata,
   deleteLinkMetadata,
 } from "@/lib/links";
+import { parseJsonBody, parseQuery } from "@/lib/validateRequest";
 
 // GET /api/links - List all links (createdBy, an admin email, only for admins)
 export async function GET(request: NextRequest) {
@@ -46,25 +48,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    // Parse request body
-    const body = await request.json();
-    const { text, href, description } = body;
-
-    // Validate required fields
-    if (!text || !href) {
-      return NextResponse.json(
-        { error: "Text and href are required" },
-        { status: 400 }
-      );
-    }
-
-    // Validate types
-    if (typeof text !== "string" || typeof href !== "string") {
-      return NextResponse.json(
-        { error: "Text and href must be strings" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseJsonBody(request, linkCreateBodySchema);
+    if (!parsed.ok) return parsed.response;
+    const { text, href, description } = parsed.data;
 
     // Create link
     const newLink = await addLinkMetadata({
@@ -103,14 +89,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    // Get id from query params
-    const id = request.nextUrl.searchParams.get("id");
-    if (!id) {
-      return NextResponse.json(
-        { error: "Link ID is required" },
-        { status: 400 }
-      );
-    }
+    const parsed = parseQuery(
+      request.nextUrl.searchParams,
+      linkDeleteQuerySchema,
+      ["id"]
+    );
+    if (!parsed.ok) return parsed.response;
+    const { id } = parsed.data;
 
     const success = await deleteLinkMetadata(id);
 

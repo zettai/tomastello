@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { imageCompleteBodySchema } from "@/lib/apiSchemas";
 import { conflictResponse } from "@/lib/storeErrors";
 import { requireUser } from "@/lib/routeAuth";
 import { addImageMetadata, getMetadataByFileName } from "@/lib/metadata";
@@ -6,11 +7,11 @@ import { deleteObject, ensureObjectPublic, headObject } from "@/lib/objects";
 import {
   getUploadMode,
   IMAGE_MIME_TYPES,
-  isUploadKey,
   MAX_IMAGE_SIZE,
   publicObjectUrl,
 } from "@/lib/uploads";
 import { createLogger } from "@/lib/logger";
+import { parseJsonBody } from "@/lib/validateRequest";
 
 const log = createLogger("images/upload/complete");
 
@@ -22,16 +23,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Not available in relay upload mode" }, { status: 409 });
   }
 
-  let body: { key?: unknown; originalName?: unknown };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const { key, originalName } = body;
-  if (!isUploadKey("images", key)) {
-    return NextResponse.json({ error: "Invalid key" }, { status: 400 });
-  }
+  const parsed = await parseJsonBody(request, imageCompleteBodySchema);
+  if (!parsed.ok) return parsed.response;
+  const { key, originalName } = parsed.data;
 
   try {
     if (await getMetadataByFileName(key)) {

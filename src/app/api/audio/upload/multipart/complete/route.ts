@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { audioMultipartCompleteBodySchema } from "@/lib/apiSchemas";
 import { conflictResponse } from "@/lib/storeErrors";
 import { CompleteMultipartUploadCommand } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
@@ -7,15 +8,11 @@ import { addAudioMetadata } from "@/lib/audioMetadata";
 import { recordUpload } from "@/lib/rateLimiter";
 import { notifyServerError } from "@/lib/notifier";
 import { deleteObject, ensureObjectPublic, headObject } from "@/lib/objects";
-import { isUploadKey, MAX_AUDIO_SIZE, publicObjectUrl } from "@/lib/uploads";
+import { MAX_AUDIO_SIZE, publicObjectUrl } from "@/lib/uploads";
 import { createLogger } from "@/lib/logger";
+import { parseJsonBody } from "@/lib/validateRequest";
 
 const log = createLogger("audio/upload/multipart/complete");
-
-interface CompletePart {
-  partNumber: number;
-  etag: string;
-}
 
 export async function POST(request: NextRequest) {
   const ip =
@@ -32,26 +29,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json() as {
-      uploadId?: string;
-      key?: string;
-      parts?: CompletePart[];
-      title?: string;
-      mimeType?: string;
-      size?: number;
-    };
-    const { uploadId, key, parts, title, mimeType, size } = body;
-
-    if (!uploadId || !key || !parts || !title || !mimeType || size === undefined) {
-      return NextResponse.json(
-        { error: "uploadId, key, parts, title, mimeType, and size are required" },
-        { status: 400 }
-      );
-    }
-
-    if (!isUploadKey("audio", key) || !Array.isArray(parts) || parts.length === 0) {
-      return NextResponse.json({ error: "Invalid key or parts" }, { status: 400 });
-    }
+    const parsed = await parseJsonBody(request, audioMultipartCompleteBodySchema);
+    if (!parsed.ok) return parsed.response;
+    const { uploadId, key, parts, title, mimeType } = parsed.data;
 
     const command = new CompleteMultipartUploadCommand({
       Bucket: SCALEWAY_BUCKET,

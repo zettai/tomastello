@@ -127,6 +127,7 @@ describe("PUT /api/site", () => {
 
     const response = await PUT(request);
     expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid request" });
   });
 
   it("rejects invalid photos", async () => {
@@ -142,6 +143,7 @@ describe("PUT /api/site", () => {
 
     const response = await PUT(request);
     expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid request" });
   });
 
   it("rejects invalid links", async () => {
@@ -157,6 +159,7 @@ describe("PUT /api/site", () => {
 
     const response = await PUT(request);
     expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid request" });
   });
 
   it("updates site data successfully", async () => {

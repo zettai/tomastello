@@ -51,14 +51,14 @@ describe("POST /api/images/upload/complete", () => {
   });
 
   it.each([
-    ["invalid JSON", new Error("bad"), "Invalid JSON"],
-    ["a key outside images/", { key: "audio/1-a.mp3" }, "Invalid key"],
-    ["the users file", { key: "auth/users.json" }, "Invalid key"],
-    ["a missing key", {}, "Invalid key"],
-  ])("should reject %s with 400", async (_label, body, error) => {
+    ["invalid JSON", new Error("bad")],
+    ["a key outside images/", { key: "audio/1-a.mp3" }],
+    ["the users file", { key: "auth/users.json" }],
+    ["a missing key", {}],
+  ])("should return 400 when %s", async (_label, body) => {
     const res = await POST(req(body));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("should save metadata with the size and type the bucket reports", async () => {

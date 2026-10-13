@@ -190,7 +190,7 @@ describe("POST /api/audio/upload/multipart/complete", () => {
   ])("should reject %s with 400", async (_label, override) => {
     const res = await POST(makeRequest({ ...VALID_BODY, ...override }, "tok"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid key or parts" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
     expect(scalewayClient.send).not.toHaveBeenCalled();
   });
 });

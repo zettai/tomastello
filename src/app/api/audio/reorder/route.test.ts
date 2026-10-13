@@ -68,13 +68,13 @@ describe("PUT /api/audio/reorder", () => {
   it("returns 400 if ids is missing", async () => {
     const res = await PUT(makeReq("tok", {}));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "ids must be a non-empty array" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if ids is empty array", async () => {
     const res = await PUT(makeReq("tok", { ids: [] }));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "ids must be a non-empty array" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("returns 200 with reordered audio", async () => {
