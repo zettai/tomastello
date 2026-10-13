@@ -70,13 +70,10 @@ describe("POST /api/auth/magic-link", () => {
     });
   });
 
-  it("should keep invalid email format message for well-shaped body", async () => {
-    (requestLoginLink as jest.Mock).mockResolvedValueOnce({ ok: false, reason: "invalid" });
+  it("should return 400 Invalid request when email format is invalid", async () => {
     const res = await POST(postRequest({ email: "not-an-email" }));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({
-      success: false,
-      error: "Enter a valid email address",
-    });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
+    expect(requestLoginLink).not.toHaveBeenCalled();
   });
 });
