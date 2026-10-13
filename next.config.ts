@@ -37,8 +37,6 @@ const nextConfig: NextConfig = {
   output: process.env.NETLIFY ? undefined : "standalone",
   // Parent worktree also has a lockfile (/tmp/ttpoc); pin tracing to this app root.
   outputFileTracingRoot: path.join(__dirname),
-  // Home loads bucket data at request time; don't bake an empty build-time shell (PPR).
-  experimental: { ppr: false },
   reactStrictMode: true,
   images: {
     remotePatterns: [

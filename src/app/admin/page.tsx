@@ -65,8 +65,28 @@ function SecurityPanel() {
   }, []);
 
   useEffect(() => {
-    fetchSecurity();
-  }, [fetchSecurity]);
+    let cancelled = false;
+
+    async function loadSecurity() {
+      try {
+        const res = await fetch("/api/admin/security");
+        if (!cancelled && res.ok) {
+          const data = await res.json() as { lock?: SystemLock; events?: SecurityEvent[] };
+          setLock(data.lock ?? null);
+          setEvents(data.events ?? []);
+        }
+      } catch {
+        // Ignore
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    }
+
+    void loadSecurity();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleUnlock = async () => {
     setUnlocking(true);
@@ -170,8 +190,6 @@ function ImageManager({
   const { saveSite } = useAdminSave();
   const [images, setImages] = useState<ImageListItem[]>([]);
   const [onSiteKeys, setOnSiteKeys] = useState<string[]>([]);
-  const onSiteKeysRef = useRef(onSiteKeys);
-  onSiteKeysRef.current = onSiteKeys;
   const [loading, setLoading] = useState(true);
   const [isReordering, setIsReordering] = useState(false);
   const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null);
@@ -286,16 +304,15 @@ function ImageManager({
 
   const moveOnSite = (index: number, direction: "up" | "down") => {
     if (isReordering) return;
-    const previous = onSiteKeysRef.current;
     const newIndex = direction === "up" ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= previous.length) return;
-
+    setOnSiteKeys((previous) => {
+      if (newIndex < 0 || newIndex >= previous.length) return previous;
+      const next = [...previous];
+      [next[index], next[newIndex]] = [next[newIndex], next[index]];
+      persistPhotos(next, previous, "Photo order saved");
+      return next;
+    });
     setIsReordering(true);
-    const next = [...previous];
-    [next[index], next[newIndex]] = [next[newIndex], next[index]];
-    onSiteKeysRef.current = next;
-    setOnSiteKeys(next);
-    persistPhotos(next, previous, "Photo order saved");
     requestAnimationFrame(() => {
       setIsReordering(false);
     });
@@ -323,25 +340,25 @@ function ImageManager({
   }, [onSiteKeys]);
 
   const hidePhoto = (key: string) => {
-    const previous = onSiteKeysRef.current;
-    if (!previous.includes(key)) return;
-    const next = previous.filter((k) => k !== key);
-    focusKeyRef.current = key;
-    focusActionRef.current = "show";
-    onSiteKeysRef.current = next;
-    setOnSiteKeys(next);
-    persistPhotos(next, previous, "Photo hidden");
+    setOnSiteKeys((previous) => {
+      if (!previous.includes(key)) return previous;
+      const next = previous.filter((k) => k !== key);
+      focusKeyRef.current = key;
+      focusActionRef.current = "show";
+      persistPhotos(next, previous, "Photo hidden");
+      return next;
+    });
   };
 
   const showPhoto = (key: string) => {
-    const previous = onSiteKeysRef.current;
-    if (previous.includes(key)) return;
-    const next = [...previous, key];
-    focusKeyRef.current = key;
-    focusActionRef.current = "hide";
-    onSiteKeysRef.current = next;
-    setOnSiteKeys(next);
-    persistPhotos(next, previous, "Photo shown on site");
+    setOnSiteKeys((previous) => {
+      if (previous.includes(key)) return previous;
+      const next = [...previous, key];
+      focusKeyRef.current = key;
+      focusActionRef.current = "hide";
+      persistPhotos(next, previous, "Photo shown on site");
+      return next;
+    });
   };
 
   const renderRow = (

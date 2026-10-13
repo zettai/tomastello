@@ -8,7 +8,7 @@ music player and a photo gallery, all edited from a protected admin panel. Live 
 
 ![The public page: live radio and about windows in the retro terminal style](docs/screenshot.png)
 
-Built with Next.js 15 (App Router), React 18, TypeScript and Tailwind, with a
+Built with Next.js 16 (App Router), React 19, TypeScript and Tailwind, with a
 retro/terminal window aesthetic. There is no database: content and media live as JSON and
 files in an S3-compatible bucket (Scaleway Object Storage).
 

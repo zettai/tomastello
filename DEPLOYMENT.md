@@ -1,7 +1,8 @@
 # Deployment
 
 Production (`https://tomas-tello.stream`) runs on **Netlify**: pages and API routes as serverless
-functions, `src/middleware.ts` on the edge, static files from the CDN. The old self-hosted Docker
+functions, `src/middleware.ts` on the edge (Next 16's Node `proxy.ts` rename not used here),
+static files from the CDN. The old self-hosted Docker
 container is gone; there is no CI deploy and no container registry any more.
 
 ## How a release ships

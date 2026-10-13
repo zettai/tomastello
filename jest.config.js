@@ -43,8 +43,11 @@ const customJestConfig = {
 // swallows the jose exception above. jose is ESM-only, so add it to next's exemption.
 module.exports = async () => {
     const config = await createJestConfig(customJestConfig)();
-    config.transformIgnorePatterns = config.transformIgnorePatterns.map((pattern) =>
-        pattern.replace('(geist)', '(geist|jose)')
-    );
+    config.transformIgnorePatterns = config.transformIgnorePatterns.map((pattern) => {
+        if (pattern.includes('geist|next/dist/client')) {
+            return pattern.replace('(geist|next/dist/client', '(geist|jose|next/dist/client');
+        }
+        return pattern.replace('(geist)', '(geist|jose)');
+    });
     return config;
 }; 

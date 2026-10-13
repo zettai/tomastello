@@ -17,6 +17,15 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024).toFixed(0)} KB`;
 }
 
+async function loadAudioList(): Promise<AudioMetadata[] | null> {
+  const res = await fetch("/api/audio/list");
+  const data = await res.json();
+  if (data.success && Array.isArray(data.audio)) {
+    return data.audio as AudioMetadata[];
+  }
+  return null;
+}
+
 export default function AudioManager({
   refreshTrigger,
 }: AudioManagerProps) {
@@ -34,11 +43,8 @@ export default function AudioManager({
 
   const fetchAudio = useCallback(async () => {
     try {
-      const res = await fetch("/api/audio/list");
-      const data = await res.json();
-      if (data.success && Array.isArray(data.audio)) {
-        setAudioList(data.audio);
-      }
+      const list = await loadAudioList();
+      if (list) setAudioList(list);
     } catch (err) {
       console.error("Failed to fetch audio:", err);
     } finally {
@@ -47,8 +53,24 @@ export default function AudioManager({
   }, []);
 
   useEffect(() => {
-    fetchAudio();
-  }, [fetchAudio, refreshTrigger]);
+    let cancelled = false;
+
+    async function loadAudio() {
+      try {
+        const list = await loadAudioList();
+        if (!cancelled && list) setAudioList(list);
+      } catch (err) {
+        console.error("Failed to fetch audio:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadAudio();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTrigger]);
 
   const persistOrder = (
     next: AudioMetadata[],
