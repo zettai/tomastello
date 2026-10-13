@@ -34,7 +34,10 @@ npm run sonar                   # SonarQube scan + quality gate (same as CI)
   `ALLOW_NEW_REGISTRATIONS`.
 - **API routes** (`src/app/api/`) read and write bucket JSON through the lib helpers and
   return `NextResponse.json()`. Groups: `auth`, `images`, `audio` (including multipart
-  upload), `site`, `links`, `admin/security`, `health`.
+  upload), `site`, `links`, `admin/security`, `health`. There is no OpenAPI/Swagger
+  surface. Request bodies, query, params, and form fields are validated with **Zod**
+  (`src/lib/apiSchemas.ts`, `src/lib/validateRequest.ts`); failures return
+  `{ error: "Invalid request" }` (400) without field-level detail.
 - **Pages:** `/` (public, client-rendered from `/api/site`), `/admin` (auth checked
   client-side via `/api/auth/profile`), `/login` (magic link).
 - **Libs** (`src/lib/`): `api` (S3), `auth`, `metadata`, `audioMetadata`

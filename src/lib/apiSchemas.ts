@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isEmailLike } from "@/lib/text";
 import {
   AUDIO_MIME_TYPES,
   IMAGE_MIME_TYPES,
@@ -8,6 +9,12 @@ import {
   MAX_PART_SIZE,
   isUploadKey,
 } from "@/lib/uploads";
+
+/** Same rules as `normalizeEmail` in auth/magic-link (route returns generic 400 on failure). */
+function isMagicLinkEmail(value: string): boolean {
+  const email = value.trim().toLowerCase();
+  return email.length <= 320 && isEmailLike(email);
+}
 
 const imageMimeValues = Array.from(IMAGE_MIME_TYPES) as [string, ...string[]];
 const audioMimeValues = Array.from(AUDIO_MIME_TYPES) as [string, ...string[]];
@@ -95,9 +102,8 @@ export const magicLinkGetQuerySchema = z.object({
   token: z.string().nullable(),
 });
 
-/** Shape-only check; email format is validated in auth/magic-link. */
 export const magicLinkPostBodySchema = z.object({
-  email: z.string(),
+  email: z.string().refine(isMagicLinkEmail),
   next: z.string().optional(),
   redirect: z.string().optional(),
 });

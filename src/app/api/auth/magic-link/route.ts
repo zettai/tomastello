@@ -5,7 +5,7 @@ import {
 } from "@/lib/apiSchemas";
 import { redeemLoginLink, requestLoginLink } from "@/lib/auth/magic-link";
 import { seeOther } from "@/lib/auth/redirect";
-import { parseQuery, parseWithSchema } from "@/lib/validateRequest";
+import { invalidRequestResponse, parseQuery, parseWithSchema } from "@/lib/validateRequest";
 
 function siteOrigin(request: Request): string {
   return (
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     );
     if (!outcome.ok) {
       if (outcome.reason === "invalid") {
-        return NextResponse.json({ success: false, error: "Enter a valid email address" }, { status: 400 });
+        return invalidRequestResponse();
       }
       return NextResponse.json(
         { success: false, error: "Too many requests. Try again later." },
