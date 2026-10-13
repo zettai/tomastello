@@ -17,7 +17,7 @@ import {
   MAX_AUDIO_SIZE,
   publicObjectUrl,
 } from "@/lib/uploads";
-import { invalidRequestResponse, parseFormData } from "@/lib/validateRequest";
+import { parseFormData } from "@/lib/validateRequest";
 
 const log = createLogger("audio/upload");
 
@@ -54,16 +54,6 @@ export async function POST(request: NextRequest) {
     const file = parsed.data.file;
     const title = parsed.data.title;
 
-    if (file.size > MAX_AUDIO_SIZE) {
-      await addSecurityEvent({
-        type: "upload_rejected_size",
-        ip,
-        userEmail: userPayload.email,
-        detail: `${file.size} bytes`,
-      });
-      return invalidRequestResponse();
-    }
-
     if (!AUDIO_MIME_TYPES.has(file.type)) {
       await addSecurityEvent({
         type: "upload_rejected_mime",
@@ -71,7 +61,10 @@ export async function POST(request: NextRequest) {
         userEmail: userPayload.email,
         detail: file.type,
       });
-      return invalidRequestResponse();
+      return NextResponse.json(
+        { error: "Only audio files are allowed" },
+        { status: 400 }
+      );
     }
 
     if (!audioExtensionMatches(file.name, file.type)) {
@@ -83,6 +76,19 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json(
         { error: "File extension does not match MIME type" },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_AUDIO_SIZE) {
+      await addSecurityEvent({
+        type: "upload_rejected_size",
+        ip,
+        userEmail: userPayload.email,
+        detail: `${file.size} bytes`,
+      });
+      return NextResponse.json(
+        { error: "File exceeds the 100 MB limit" },
         { status: 400 }
       );
     }

@@ -3,6 +3,7 @@ import { multipartAbortQuerySchema } from "@/lib/apiSchemas";
 import { AbortMultipartUploadCommand } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
 import { verifyToken } from "@/lib/auth";
+import { isUploadKey } from "@/lib/uploads";
 import { createLogger } from "@/lib/logger";
 import { parseQuery } from "@/lib/validateRequest";
 
@@ -26,6 +27,10 @@ export async function DELETE(request: NextRequest) {
   );
   if (!parsed.ok) return parsed.response;
   const { uploadId, key } = parsed.data;
+
+  if (!isUploadKey("audio", key)) {
+    return NextResponse.json({ error: "Invalid key" }, { status: 400 });
+  }
 
   try {
     const command = new AbortMultipartUploadCommand({

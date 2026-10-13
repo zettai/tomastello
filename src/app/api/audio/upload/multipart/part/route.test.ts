@@ -80,7 +80,7 @@ describe("PUT /api/audio/upload/multipart/part", () => {
   it("returns 400 if partNumber is 0", async () => {
     const res = await PUT(makeRequest({ uploadId: "u1", key: "audio/1-k1.mp3", partNumber: "0" }, "tok"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid request" });
+    expect(await res.json()).toEqual({ error: "Invalid partNumber" });
   });
 
   it("returns 400 if partNumber is negative", async () => {
@@ -144,7 +144,7 @@ describe("upload mode guards and key checks", () => {
     process.env.UPLOAD_MODE = "relay";
     const res = await PUT(makeRequest({ ...PARAMS, key }, "tok"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid request" });
+    expect(await res.json()).toEqual({ error: "Invalid key" });
   });
 
   it("should reject a part number above the S3 limit", async () => {
@@ -181,17 +181,19 @@ describe("upload mode guards and key checks", () => {
     expect(presignUploadPart).not.toHaveBeenCalled();
   });
 
-  it.each([["missing", undefined], ["zero", "0"], ["too large", String(200 * 1024 * 1024)], ["fractional", "1.5"]])(
-    "should reject a %s size with 400",
-    async (_label, size) => {
-      process.env.UPLOAD_MODE = "presigned";
-      const params: Record<string, string> = { uploadId: "u1", key: "audio/1-k1.mp3", partNumber: "1" };
-      if (size !== undefined) params.size = size;
-      const res = await GET(makeRequest(params, "tok"));
-      expect(res.status).toBe(400);
-      expect(await res.json()).toEqual({ error: "Invalid request" });
-    }
-  );
+  it.each([
+    ["missing", undefined, "Invalid request"],
+    ["zero", "0", "Invalid size"],
+    ["too large", String(200 * 1024 * 1024), "Invalid size"],
+    ["fractional", "1.5", "Invalid size"],
+  ])("should reject a %s size with 400", async (_label, size, error) => {
+    process.env.UPLOAD_MODE = "presigned";
+    const params: Record<string, string> = { uploadId: "u1", key: "audio/1-k1.mp3", partNumber: "1" };
+    if (size !== undefined) params.size = size;
+    const res = await GET(makeRequest(params, "tok"));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error });
+  });
 
   it("should return 500 when signing fails", async () => {
     process.env.UPLOAD_MODE = "presigned";

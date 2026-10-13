@@ -75,6 +75,7 @@ describe("DELETE /api/audio/upload/multipart/abort", () => {
   it("should reject a key outside audio/ with 400", async () => {
     const res = await DELETE(makeRequest({ uploadId: "u1", key: "auth/users.json" }, "tok"));
     expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid key" });
     expect(scalewayClient.send).not.toHaveBeenCalled();
   });
 });

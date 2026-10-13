@@ -7,6 +7,7 @@ import { deleteObject, ensureObjectPublic, headObject } from "@/lib/objects";
 import {
   getUploadMode,
   IMAGE_MIME_TYPES,
+  isUploadKey,
   MAX_IMAGE_SIZE,
   publicObjectUrl,
 } from "@/lib/uploads";
@@ -26,6 +27,10 @@ export async function POST(request: NextRequest) {
   const parsed = await parseJsonBody(request, imageCompleteBodySchema);
   if (!parsed.ok) return parsed.response;
   const { key, originalName } = parsed.data;
+
+  if (!isUploadKey("images", key)) {
+    return NextResponse.json({ error: "Invalid key" }, { status: 400 });
+  }
 
   try {
     if (await getMetadataByFileName(key)) {

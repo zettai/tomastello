@@ -50,15 +50,20 @@ describe("POST /api/images/upload/complete", () => {
     expect(headObject).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["invalid JSON", new Error("bad")],
-    ["a key outside images/", { key: "audio/1-a.mp3" }],
-    ["the users file", { key: "auth/users.json" }],
-    ["a missing key", {}],
-  ])("should return 400 when %s", async (_label, body) => {
-    const res = await POST(req(body));
+  it("should return 400 when JSON is invalid", async () => {
+    const res = await POST(req(new Error("bad")));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Invalid request" });
+  });
+
+  it.each([
+    ["a key outside images/", { key: "audio/1-a.mp3" }, "Invalid key"],
+    ["the users file", { key: "auth/users.json" }, "Invalid key"],
+    ["a missing key", {}, "Invalid request"],
+  ])("should return 400 when %s", async (_label, body, error) => {
+    const res = await POST(req(body));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error });
   });
 
   it("should save metadata with the size and type the bucket reports", async () => {

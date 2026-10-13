@@ -184,11 +184,15 @@ describe("POST /api/audio/upload/multipart/complete", () => {
     expect(deleteObject).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["a key outside audio/", { key: "metadata/site.json" }],
-    ["empty parts", { parts: [] }],
-  ])("should reject %s with 400", async (_label, override) => {
-    const res = await POST(makeRequest({ ...VALID_BODY, ...override }, "tok"));
+  it("should reject a key outside audio/ with 400", async () => {
+    const res = await POST(makeRequest({ ...VALID_BODY, key: "metadata/site.json" }, "tok"));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid key or parts" });
+    expect(scalewayClient.send).not.toHaveBeenCalled();
+  });
+
+  it("should reject empty parts with 400", async () => {
+    const res = await POST(makeRequest({ ...VALID_BODY, parts: [] }, "tok"));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Invalid request" });
     expect(scalewayClient.send).not.toHaveBeenCalled();

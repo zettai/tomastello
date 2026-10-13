@@ -6,6 +6,8 @@ import { requireUser } from "@/lib/routeAuth";
 import { presignUploadPart } from "@/lib/presign";
 import {
   getUploadMode,
+  isUploadKey,
+  MAX_PART_NUMBER,
   MAX_PART_SIZE,
   PRESIGN_EXPIRY_SECONDS,
   type UploadMode,
@@ -34,6 +36,13 @@ export async function PUT(request: NextRequest) {
   );
   if (!parsed.ok) return parsed.response;
   const { uploadId, key, partNumber } = parsed.data;
+
+  if (!isUploadKey("audio", key)) {
+    return NextResponse.json({ error: "Invalid key" }, { status: 400 });
+  }
+  if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > MAX_PART_NUMBER) {
+    return NextResponse.json({ error: "Invalid partNumber" }, { status: 400 });
+  }
 
   try {
     const body = await request.arrayBuffer();
@@ -78,6 +87,16 @@ export async function GET(request: NextRequest) {
   );
   if (!parsed.ok) return parsed.response;
   const { uploadId, key, partNumber, size } = parsed.data;
+
+  if (!isUploadKey("audio", key)) {
+    return NextResponse.json({ error: "Invalid key" }, { status: 400 });
+  }
+  if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > MAX_PART_NUMBER) {
+    return NextResponse.json({ error: "Invalid partNumber" }, { status: 400 });
+  }
+  if (!Number.isInteger(size) || size < 1 || size > MAX_PART_SIZE) {
+    return NextResponse.json({ error: "Invalid size" }, { status: 400 });
+  }
 
   try {
     const url = await presignUploadPart(key, uploadId, partNumber, size);

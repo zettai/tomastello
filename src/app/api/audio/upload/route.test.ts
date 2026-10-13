@@ -99,7 +99,7 @@ describe("POST /api/audio/upload", () => {
       createRequest("tok", makeFormData({ file, title: "Song" }))
     );
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid request" });
+    expect(await res.json()).toEqual({ error: "Only audio files are allowed" });
   });
 
   it("returns 400 if file extension does not match MIME type", async () => {
@@ -129,7 +129,9 @@ describe("POST /api/audio/upload", () => {
       createRequest("tok", makeFormData({ file, title: "Big" }))
     );
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid request" });
+    expect(await res.json()).toEqual({
+      error: "File exceeds the 100 MB limit",
+    });
   });
 
   it("returns 429 if rate-limited", async () => {
