@@ -5,6 +5,8 @@ import { presignObjectPut } from "@/lib/presign";
 import {
   buildObjectKey,
   getUploadMode,
+  IMAGE_MIME_TYPES,
+  MAX_IMAGE_SIZE,
   PRESIGN_EXPIRY_SECONDS,
 } from "@/lib/uploads";
 import { createLogger } from "@/lib/logger";
@@ -23,6 +25,22 @@ export async function POST(request: NextRequest) {
   const parsed = await parseJsonBody(request, imagePresignBodySchema);
   if (!parsed.ok) return parsed.response;
   const { fileName, contentType, size } = parsed.data;
+
+  if (!IMAGE_MIME_TYPES.has(contentType)) {
+    return NextResponse.json(
+      { error: "Only JPEG, PNG, WebP, GIF and AVIF images are allowed" },
+      { status: 400 }
+    );
+  }
+  if (!Number.isInteger(size) || size < 1) {
+    return NextResponse.json(
+      { error: "File size must be a positive whole number" },
+      { status: 400 }
+    );
+  }
+  if (size > MAX_IMAGE_SIZE) {
+    return NextResponse.json({ error: "File size must be less than 30MB" }, { status: 400 });
+  }
 
   const key = buildObjectKey("images", fileName);
   try {

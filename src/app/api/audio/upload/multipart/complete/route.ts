@@ -8,7 +8,7 @@ import { addAudioMetadata } from "@/lib/audioMetadata";
 import { recordUpload } from "@/lib/rateLimiter";
 import { notifyServerError } from "@/lib/notifier";
 import { deleteObject, ensureObjectPublic, headObject } from "@/lib/objects";
-import { MAX_AUDIO_SIZE, publicObjectUrl } from "@/lib/uploads";
+import { isUploadKey, MAX_AUDIO_SIZE, publicObjectUrl } from "@/lib/uploads";
 import { createLogger } from "@/lib/logger";
 import { parseJsonBody } from "@/lib/validateRequest";
 
@@ -32,6 +32,10 @@ export async function POST(request: NextRequest) {
     const parsed = await parseJsonBody(request, audioMultipartCompleteBodySchema);
     if (!parsed.ok) return parsed.response;
     const { uploadId, key, parts, title, mimeType } = parsed.data;
+
+    if (!isUploadKey("audio", key) || parts.length === 0) {
+      return NextResponse.json({ error: "Invalid key or parts" }, { status: 400 });
+    }
 
     const command = new CompleteMultipartUploadCommand({
       Bucket: SCALEWAY_BUCKET,

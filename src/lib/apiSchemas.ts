@@ -1,34 +1,11 @@
 import { z } from "zod";
 import { isEmailLike } from "@/lib/text";
-import {
-  AUDIO_MIME_TYPES,
-  IMAGE_MIME_TYPES,
-  MAX_AUDIO_SIZE,
-  MAX_IMAGE_SIZE,
-  MAX_PART_NUMBER,
-  MAX_PART_SIZE,
-  isUploadKey,
-} from "@/lib/uploads";
 
 /** Same rules as `normalizeEmail` in auth/magic-link (route returns generic 400 on failure). */
 function isMagicLinkEmail(value: string): boolean {
   const email = value.trim().toLowerCase();
   return email.length <= 320 && isEmailLike(email);
 }
-
-const imageMimeValues = Array.from(IMAGE_MIME_TYPES) as [string, ...string[]];
-const audioMimeValues = Array.from(AUDIO_MIME_TYPES) as [string, ...string[]];
-
-export const imageMimeSchema = z.enum(imageMimeValues);
-export const audioMimeSchema = z.enum(audioMimeValues);
-
-export const uploadImagesKeySchema = z
-  .string()
-  .refine((key) => isUploadKey("images", key));
-
-export const uploadAudioKeySchema = z
-  .string()
-  .refine((key) => isUploadKey("audio", key));
 
 const siteLinkSchema = z.object({
   id: z.string().optional(),
@@ -109,7 +86,7 @@ export const magicLinkPostBodySchema = z.object({
 });
 
 export const imageDeleteQuerySchema = z.object({
-  key: uploadImagesKeySchema,
+  key: z.string().min(1),
 });
 
 export const imageMetadataUpdateBodySchema = z
@@ -123,12 +100,12 @@ export const imageMetadataUpdateBodySchema = z
 
 export const imagePresignBodySchema = z.object({
   fileName: z.string().min(1),
-  contentType: imageMimeSchema,
-  size: z.number().int().min(1).max(MAX_IMAGE_SIZE),
+  contentType: z.string().min(1),
+  size: z.number(),
 });
 
 export const imageCompleteBodySchema = z.object({
-  key: uploadImagesKeySchema,
+  key: z.string().min(1),
   originalName: z.string().optional(),
 });
 
@@ -139,23 +116,17 @@ function isUploadFile(value: unknown): value is File {
     type?: unknown;
     size?: unknown;
     name?: unknown;
-    arrayBuffer?: unknown;
   };
   return (
     typeof candidate.type === "string" &&
     typeof candidate.size === "number" &&
-    typeof candidate.name === "string" &&
-    typeof candidate.arrayBuffer === "function"
+    typeof candidate.name === "string"
   );
 }
 
 export const imageRelayUploadFormSchema = z.object({
   file: z.custom<File>((value) => isUploadFile(value), { message: "file required" }),
 });
-
-export function validateRelayImageFile(file: File): boolean {
-  return file.type.startsWith("image/") && file.size > 0 && file.size <= MAX_IMAGE_SIZE;
-}
 
 export const audioRelayUploadFormSchema = z.object({
   file: z.custom<File>((value) => isUploadFile(value), { message: "file required" }),
@@ -167,33 +138,33 @@ export const audioRelayUploadFormSchema = z.object({
 
 export const audioMultipartInitBodySchema = z.object({
   fileName: z.string().min(1),
-  mimeType: audioMimeSchema,
-  size: z.number().nonnegative().max(MAX_AUDIO_SIZE),
+  mimeType: z.string().min(1),
+  size: z.number(),
 });
 
 const multipartCompletePartSchema = z.object({
-  partNumber: z.number().int().min(1).max(MAX_PART_NUMBER),
+  partNumber: z.number().int().min(1),
   etag: z.string().min(1),
 });
 
 export const audioMultipartCompleteBodySchema = z.object({
   uploadId: z.string().min(1),
-  key: uploadAudioKeySchema,
+  key: z.string().min(1),
   parts: z.array(multipartCompletePartSchema).min(1),
   title: z.string().min(1),
-  mimeType: audioMimeSchema,
-  size: z.number().max(MAX_AUDIO_SIZE),
+  mimeType: z.string().min(1),
+  size: z.number(),
 });
 
 const partNumberFromQuery = z
   .string()
   .min(1)
   .transform((value) => Number(value))
-  .pipe(z.number().int().min(1).max(MAX_PART_NUMBER));
+  .pipe(z.number());
 
 export const multipartPartQuerySchema = z.object({
   uploadId: z.string().min(1),
-  key: uploadAudioKeySchema,
+  key: z.string().min(1),
   partNumber: partNumberFromQuery,
 });
 
@@ -202,10 +173,10 @@ export const multipartPartPresignQuerySchema = multipartPartQuerySchema.extend({
     .string()
     .min(1)
     .transform((value) => Number(value))
-    .pipe(z.number().int().min(1).max(MAX_PART_SIZE)),
+    .pipe(z.number()),
 });
 
 export const multipartAbortQuerySchema = z.object({
   uploadId: z.string().min(1),
-  key: uploadAudioKeySchema,
+  key: z.string().min(1),
 });

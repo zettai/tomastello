@@ -67,11 +67,13 @@ describe("POST /api/audio/upload/multipart/init", () => {
     expect(res.status).toBe(400);
   });
 
-  it("should return 400 when MIME type is disallowed", async () => {
+  it("returns 400 and records event for disallowed MIME type", async () => {
     const res = await POST(makeRequest({ fileName: "a.txt", mimeType: "text/plain", size: 1024 }, "tok"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid request" });
-    expect(addSecurityEvent).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({ error: "Only audio files are allowed" });
+    expect(addSecurityEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "upload_rejected_mime" })
+    );
   });
 
   it("returns 400 and records event for extension/MIME mismatch", async () => {
@@ -83,13 +85,15 @@ describe("POST /api/audio/upload/multipart/init", () => {
     );
   });
 
-  it("should return 400 when declared size exceeds 100 MB", async () => {
+  it("returns 400 and records event when file exceeds 100 MB", async () => {
     const res = await POST(makeRequest(
       { fileName: "big.mp3", mimeType: "audio/mpeg", size: 101 * 1024 * 1024 }, "tok"
     ));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid request" });
-    expect(addSecurityEvent).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({ error: "File exceeds the 100 MB limit" });
+    expect(addSecurityEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "upload_rejected_size" })
+    );
   });
 
   it("returns 429 when rate limited", async () => {

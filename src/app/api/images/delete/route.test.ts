@@ -126,7 +126,7 @@ describe("DELETE /api/images/delete", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Invalid request" });
+    expect(data).toEqual({ error: "Image key is required" });
   });
 
   it("should return 400 when key is not an upload key", async () => {
@@ -146,7 +146,7 @@ describe("DELETE /api/images/delete", () => {
 
     const response = await DELETE(request as any);
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Invalid request" });
+    expect(await response.json()).toEqual({ error: "Invalid key" });
   });
 
   it("successfully deletes image with metadata", async () => {
