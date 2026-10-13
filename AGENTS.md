@@ -4,15 +4,15 @@ Guidance for AI coding agents working in this repo. Human-facing overview: `READ
 
 ## Project
 
-Official website of **Tomás Tello** (musician/DJ), live at `tomas-tello.stream`. Next.js 15
-(App Router, `src/app`), React 18, TypeScript strict, Tailwind, retro/terminal look
+Official website of **Tomás Tello** (musician/DJ), live at `tomas-tello.stream`. Next.js 16
+(App Router, `src/app`), React 19, TypeScript strict, Tailwind, retro/terminal look
 (`retro-window`, `retro-title-bar`, `admin-window` CSS classes). A public page and a
 protected `/admin` panel.
 
 ## Commands
 
 ```bash
-npm run dev                     # dev server (Turbopack)
+npm run dev                     # dev server (Turbopack is default in Next 16)
 npm run build                   # production build
 npm run lint                    # ESLint
 npm run typecheck               # tsc --noEmit (tests included)
@@ -52,7 +52,8 @@ command line, not git-linked. Keep the app serverless-friendly:
   from the browser to the bucket with presigned URLs, never through an API route.
 - Don't add new state held in module-level variables; serverless instances don't share or
   keep it.
-- Middleware runs in the edge runtime: use `jose` there, not Node-only libraries.
+- Auth gate stays in `src/middleware.ts` (edge runtime, `jose` only). Next 16 deprecates
+  the name in favor of `proxy.ts` (Node only); we keep middleware for edge on Netlify.
 - Don't rely on standard conditional headers (`If-Match`) between browser and API; Netlify
   strips them. Use `X-*` headers (`X-Site-ETag`, `X-Links-*`).
 

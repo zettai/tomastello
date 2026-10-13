@@ -1,7 +1,8 @@
 # Netlify (proof of concept)
 
 This branch (`poc/netlify`) makes the app runnable on Netlify: pages and API routes run as
-serverless functions, `src/middleware.ts` runs on Netlify's edge, and static files come from the
+serverless functions, `src/middleware.ts` runs on Netlify's edge (kept instead of Next 16
+`proxy.ts`, which is Node-only), and static files come from the
 CDN. Nothing here has been deployed; the owner checklist is in `docs/NEEDS-FROM-OWNER.md`.
 
 ## What Netlify changes, and how the app copes

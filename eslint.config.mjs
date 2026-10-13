@@ -1,24 +1,34 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitalsBase from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const nextVitals = nextVitalsBase.map((entry, index) =>
+  index === 0
+    ? {
+        ...entry,
+        rules: {
+          ...entry.rules,
+          // SonarQube alignment: enforced locally, not only in CI.
+          "jsx-a11y/media-has-caption": "error",
+        },
+      }
+    : entry,
+);
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-  {
-    // Rules omitted by next/core-web-vitals but enforced by SonarQube.
-    // Keep this block in sync with the SonarQube quality gate so
-    // failures are caught locally via npm run lint, not only in CI.
-    rules: {
-      "jsx-a11y/media-has-caption": "error",
-    },
-  },
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTypescript,
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "coverage/**",
+    "node_modules/**",
+    ".netlify/**",
+    "test-results/**",
+    "path/**",
+  ]),
   {
     files: ["**/*.test.ts", "**/*.test.tsx"],
     rules: {
@@ -26,6 +36,12 @@ const eslintConfig = [
       "@typescript-eslint/no-require-imports": "off",
     },
   },
-];
+  {
+    files: ["jest.config.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+]);
 
 export default eslintConfig;

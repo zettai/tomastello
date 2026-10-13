@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, useEffect } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 function LoginForm() {
@@ -11,13 +11,11 @@ function LoginForm() {
 
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/admin";
-
-  useEffect(() => {
-    const linkError = searchParams.get("error");
-    if (linkError === "expired") {
-      setError("Sign-in link expired or invalid. Request a new one below.");
-    }
-  }, [searchParams]);
+  const linkExpiredError =
+    searchParams.get("error") === "expired"
+      ? "Sign-in link expired or invalid. Request a new one below."
+      : "";
+  const displayError = error || linkExpiredError;
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,9 +76,9 @@ function LoginForm() {
                 />
               </div>
 
-              {error && (
+              {displayError && (
                 <div role="alert" className="form-error p-2 bg-background-tertiary text-sm text-center">
-                  {error}
+                  {displayError}
                 </div>
               )}
 
