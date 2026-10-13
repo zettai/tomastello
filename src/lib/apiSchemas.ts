@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { isEmailLike } from "@/lib/text";
 
-/** Same rules as `normalizeEmail` in auth/magic-link (route returns generic 400 on failure). */
-function isMagicLinkEmail(value: string): boolean {
+/** Same rules as `normalizeEmail` in auth/magic-link (format checked in the route). */
+export function isMagicLinkEmail(value: string): boolean {
   const email = value.trim().toLowerCase();
   return email.length <= 320 && isEmailLike(email);
 }
@@ -60,10 +60,7 @@ export const audioIdParamSchema = z.object({
 
 export const audioUpdateBodySchema = z
   .object({
-    title: z
-      .string()
-      .optional()
-      .refine((value) => value === undefined || value.trim().length > 0),
+    title: z.string().optional(),
   })
   .strict();
 
@@ -80,7 +77,7 @@ export const magicLinkGetQuerySchema = z.object({
 });
 
 export const magicLinkPostBodySchema = z.object({
-  email: z.string().refine(isMagicLinkEmail),
+  email: z.string(),
   next: z.string().optional(),
   redirect: z.string().optional(),
 });
@@ -132,7 +129,7 @@ export const audioRelayUploadFormSchema = z.object({
   file: z.custom<File>((value) => isUploadFile(value), { message: "file required" }),
   title: z.preprocess(
     (value) => (typeof value === "string" ? value : ""),
-    z.string().trim().min(1)
+    z.string()
   ),
 });
 

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  isMagicLinkEmail,
   magicLinkGetQuerySchema,
   magicLinkPostBodySchema,
 } from "@/lib/apiSchemas";
 import { redeemLoginLink, requestLoginLink } from "@/lib/auth/magic-link";
 import { seeOther } from "@/lib/auth/redirect";
-import { invalidRequestResponse, parseQuery, parseWithSchema } from "@/lib/validateRequest";
+import { parseQuery, parseWithSchema } from "@/lib/validateRequest";
 
 function siteOrigin(request: Request): string {
   return (
@@ -58,6 +59,13 @@ export async function POST(request: Request) {
     }
 
     const { email, next, redirect } = parsed.data;
+    if (!isMagicLinkEmail(email)) {
+      return NextResponse.json(
+        { error: "Enter a valid email address" },
+        { status: 400 },
+      );
+    }
+
     const origin = siteOrigin(request);
     const outcome = await requestLoginLink(
       { email, next: next ?? redirect },
@@ -65,9 +73,6 @@ export async function POST(request: Request) {
       origin,
     );
     if (!outcome.ok) {
-      if (outcome.reason === "invalid") {
-        return invalidRequestResponse();
-      }
       return NextResponse.json(
         { success: false, error: "Too many requests. Try again later." },
         { status: 429 },

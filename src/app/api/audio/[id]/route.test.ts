@@ -69,7 +69,7 @@ describe("PUT /api/audio/[id]", () => {
   it("returns 400 if title is blank", async () => {
     const res = await PUT(makeReq("tok", { title: "   " }), makeCtx("1"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid request" });
+    expect(await res.json()).toEqual({ error: "Title cannot be blank" });
   });
 
   it("returns 404 if audio not found", async () => {
