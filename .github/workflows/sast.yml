@@ -1,0 +1,172 @@
+name: Opengrep SAST
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sast:
+    name: Opengrep SAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Opengrep SAST
+        env:
+          FAIL_ON: vuln
+          OPENGREP_VERSION: "1.30.1"
+          OPENGREP_URL: "https://github.com/opengrep/opengrep/releases/download/v1.30.1/opengrep_manylinux_x86"
+          OPENGREP_SHA256: "d3195b9d8d5ae93179f6aa5f5daaba6a920a5a09d38c5d5ae5e60924050210c4"
+          RULES_REPO: "https://github.com/opengrep/opengrep-rules"
+          RULES_SHA: "f1d2b562b414783763fd02a6ed2736eaed622efa"
+        run: |
+          set -euo pipefail
+
+          need() {
+            command -v "$1" >/dev/null 2>&1 || {
+              echo "sast: required tool missing: $1 (job container must provide bash, curl, git, python3)" >&2
+              exit 2
+            }
+          }
+          need curl
+          need git
+          need python3
+
+          WORKSPACE="${GITHUB_WORKSPACE:-${PWD}}"
+          cd "$WORKSPACE"
+
+          TMP="$(mktemp -d)"
+          trap 'rm -rf "$TMP"' EXIT
+
+          BIN="$TMP/opengrep"
+          echo "sast: downloading opengrep v${OPENGREP_VERSION}…"
+          curl -fsSL "$OPENGREP_URL" -o "$BIN"
+          if command -v sha256sum >/dev/null 2>&1; then
+            ACTUAL="$(sha256sum "$BIN" | awk '{print $1}')"
+          elif command -v shasum >/dev/null 2>&1; then
+            ACTUAL="$(shasum -a 256 "$BIN" | awk '{print $1}')"
+          else
+            echo "sast: required tool missing: sha256sum or shasum" >&2
+            exit 2
+          fi
+          if [ "$ACTUAL" != "$OPENGREP_SHA256" ]; then
+            echo "sast: FATAL sha256 mismatch for opengrep binary" >&2
+            echo "sast: expected $OPENGREP_SHA256" >&2
+            echo "sast: actual   $ACTUAL" >&2
+            exit 1
+          fi
+          chmod +x "$BIN"
+          echo "sast: opengrep sha256 ok"
+
+          RULES_SRC="$TMP/opengrep-rules"
+          RULES_DIR="$TMP/rules"
+          mkdir -p "$RULES_DIR"
+          echo "sast: cloning opengrep-rules @ ${RULES_SHA}…"
+          git clone --quiet "$RULES_REPO" "$RULES_SRC"
+          git -C "$RULES_SRC" checkout --quiet "$RULES_SHA"
+
+          RULE_COUNT=0
+          for lang in javascript typescript python; do
+            lang_root="$RULES_SRC/$lang"
+            [ -d "$lang_root" ] || continue
+            while IFS= read -r -d '' f; do
+              case "$f" in
+                *.test.*) continue ;;
+                *fixed*) continue ;;
+              esac
+              case "$f" in
+                *.yml|*.yaml) ;;
+                *) continue ;;
+              esac
+              rel="${f#"$RULES_SRC"/}"
+              dest="$RULES_DIR/$rel"
+              mkdir -p "$(dirname "$dest")"
+              cp "$f" "$dest"
+              RULE_COUNT=$((RULE_COUNT + 1))
+            done < <(find "$lang_root" -type f \( -name '*.yml' -o -name '*.yaml' \) -path '*security*' -print0)
+          done
+          echo "sast: loaded $RULE_COUNT security rules (js/ts/python)"
+          if [ "$RULE_COUNT" -eq 0 ]; then
+            echo "sast: FATAL no rules copied" >&2
+            exit 1
+          fi
+
+          RESULTS="$TMP/opengrep.json"
+          echo "sast: scanning $WORKSPACE…"
+          set +e
+          "$BIN" scan \
+            --config "$RULES_DIR" \
+            --json -o "$RESULTS" \
+            --exclude '.claude/' \
+            --exclude 'node_modules/' \
+            --exclude 'dist/' \
+            --exclude '.git/' \
+            --exclude '.next/' \
+            --exclude 'coverage/' \
+            "$WORKSPACE"
+          SCAN_RC=$?
+          set -e
+          if [ "$SCAN_RC" -ge 2 ] || [ ! -f "$RESULTS" ]; then
+            echo "sast: FATAL opengrep scan failed (exit $SCAN_RC)" >&2
+            exit "${SCAN_RC:-1}"
+          fi
+
+          python3 - "$RESULTS" "$FAIL_ON" <<'PY'
+          import json, sys
+
+          path, fail_on = sys.argv[1], sys.argv[2]
+          fail_on = (fail_on or "vuln").strip().lower()
+          if fail_on not in ("vuln", "none"):
+              print(f"sast: FATAL invalid fail-on={fail_on!r} (expected vuln|none)", file=sys.stderr)
+              sys.exit(2)
+
+          with open(path) as fh:
+              data = json.load(fh)
+
+          results = data.get("results") or []
+          rows = []
+          vuln_hits = 0
+          for r in results:
+              extra = r.get("extra") or {}
+              meta = extra.get("metadata") or {}
+              subcat = meta.get("subcategory") or []
+              if isinstance(subcat, str):
+                  subcat_list = [subcat]
+              else:
+                  subcat_list = list(subcat)
+              subcat_s = ",".join(str(s) for s in subcat_list) if subcat_list else "-"
+              severity = extra.get("severity") or meta.get("severity") or "-"
+              if isinstance(severity, str):
+                  severity = severity.lower()
+              check_id = r.get("check_id") or "-"
+              last = check_id.rsplit(".", 1)[-1]
+              start = r.get("start") or {}
+              line = start.get("line", "?")
+              fpath = r.get("path") or "?"
+              is_vuln = any("vuln" in str(s).lower() for s in subcat_list)
+              if is_vuln:
+                  vuln_hits += 1
+              rows.append((str(severity), subcat_s, last, f"{fpath}:{line}"))
+
+          print(f"sast: {len(rows)} finding(s)")
+          if rows:
+              w_sev = max(8, max(len(r[0]) for r in rows))
+              w_sub = max(11, max(len(r[1]) for r in rows))
+              w_id = max(7, max(len(r[2]) for r in rows))
+              hdr = f"{'severity':<{w_sev}}  {'subcategory':<{w_sub}}  {'rule':<{w_id}}  path:line"
+              print(hdr)
+              print("-" * len(hdr))
+              for sev, sub, rid, loc in rows:
+                  print(f"{sev:<{w_sev}}  {sub:<{w_sub}}  {rid:<{w_id}}  {loc}")
+
+          if fail_on == "vuln" and vuln_hits:
+              print(f"sast: FAIL — {vuln_hits} finding(s) with subcategory containing 'vuln'", file=sys.stderr)
+              sys.exit(1)
+          print(f"sast: policy fail-on={fail_on} — ok ({vuln_hits} vuln-class finding(s) reported)")
+          sys.exit(0)
+          PY
