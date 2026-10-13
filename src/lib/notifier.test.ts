@@ -86,6 +86,49 @@ describe("notifier", () => {
       expect((body.html as string)).toContain("audio/upload POST");
     });
 
+    it("should HTML-escape script payloads in error and context", async () => {
+      await notifyServerError({
+        error: '<script>alert(1)</script>',
+        context: '"><a href=x>',
+      });
+
+      const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(opts.body as string) as Record<string, unknown>;
+      const html = body.html as string;
+      expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+      expect(html).toContain("&quot;&gt;&lt;a href=x&gt;");
+      expect(html).not.toContain("<script>");
+      expect(html).not.toContain('"><a href=x>');
+    });
+
+    it("should HTML-escape injection in userEmail and leave normal values unchanged", async () => {
+      await notifyRateLimitAbuse({
+        ip: "10.0.0.1",
+        userEmail: '"><a href=x>',
+        hitCount: 3,
+      });
+
+      const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(opts.body as string) as Record<string, unknown>;
+      const html = body.html as string;
+      expect(html).toContain("&quot;&gt;&lt;a href=x&gt;");
+      expect(html).not.toContain('"><a href=x>');
+      expect(html).toContain("10.0.0.1");
+      expect(html).toContain("3");
+    });
+
+    it("should leave normal notifyServerError values unchanged", async () => {
+      await notifyServerError({ error: "TypeError: x is null", context: "audio/upload POST" });
+
+      const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(opts.body as string) as Record<string, unknown>;
+      const html = body.html as string;
+      expect(html).toContain("TypeError: x is null");
+      expect(html).toContain("audio/upload POST");
+      expect(html).not.toContain("&lt;");
+      expect(html).not.toContain("&amp;");
+    });
+
     it("uses NOTIFY_EMAIL_FROM override", async () => {
       process.env.NOTIFY_EMAIL_FROM = "custom@sender.com";
       await notifyServerError({ error: "e", context: "c" });
