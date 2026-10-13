@@ -84,19 +84,9 @@ All settings are listed, names only, in [`.env.production.example`](.env.product
 
 ## Deployment
 
-The site currently runs as a Docker container on a self-hosted server (see
-[DEPLOYMENT.md](DEPLOYMENT.md)). On GitHub, Actions runs lint, typecheck and tests on every
-pull request.
-
-## Roadmap
-
-The next step is moving hosting to Netlify serverless functions:
-
-- Browser uploads go straight to the bucket with presigned URLs, so large audio files never
-  pass through a function (Netlify caps request bodies at 6 MB)
-- The public page is rendered on the server and CDN-cached, for search engines and link
-  previews
-- One session system on `jose`, and a lighter dependency set
+The site runs on **Netlify** (serverless functions plus CDN) and is deployed from the command
+line; see [DEPLOYMENT.md](DEPLOYMENT.md). On GitHub, Actions runs lint, typecheck and tests on
+every pull request.
 
 ## Repository notes
 

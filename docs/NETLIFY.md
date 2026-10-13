@@ -58,9 +58,8 @@ logs an error once and falls back to plain writes, so the site keeps working unp
 ## Rollback
 
 Netlify serves whatever was last deployed and keeps every deploy: "Publish deploy" on an older
-one rolls back in seconds. Moving the domain back to the self-hosted container is a DNS change.
-The self-hosted pipeline still builds from `main`/Gitea untouched, so it remains a fallback until
-the switch is final.
+one rolls back in seconds. The self-hosted pipeline (Gitea workflow, `deploy.sh`, compose file) was removed after the
+switch; only the `Dockerfile` remains, as an unused container build.
 
 ## Measured locally (not on Netlify)
 

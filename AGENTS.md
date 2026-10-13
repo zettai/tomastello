@@ -43,22 +43,24 @@ npm run sonar                   # SonarQube scan + quality gate (same as CI)
 - **Layout:** components in `src/components/`, types in `src/types/`, tests co-located as
   `*.test.ts[x]`.
 
-## Direction: Netlify migration (planned)
+## Hosting: Netlify
 
-Hosting will move from a self-hosted Docker container to Netlify serverless functions. Don't
-make that move harder:
+Production is **Netlify** serverless functions (live at `tomas-tello.stream`), deployed from the
+command line, not git-linked. Keep the app serverless-friendly:
 
-- Netlify functions reject request bodies over **6 MB**. New upload code must send files
-  straight from the browser to the bucket with presigned URLs, never through an API route.
+- Netlify functions reject request bodies over **6 MB**. Upload code must send files straight
+  from the browser to the bucket with presigned URLs, never through an API route.
 - Don't add new state held in module-level variables; serverless instances don't share or
   keep it.
 - Middleware runs in the edge runtime: use `jose` there, not Node-only libraries.
+- Don't rely on standard conditional headers (`If-Match`) between browser and API; Netlify
+  strips them. Use `X-*` headers (`X-Site-ETag`, `X-Links-*`).
 
 ## Environment
 
 The names of all settings are in `.env.production.example`. Local values go in
 `.env.local` (gitignored). When you add a variable: add its name and a comment to
-`.env.production.example`, and to `docker-compose.yml` with a sensible default.
+`.env.production.example`.
 `NEXT_PUBLIC_*` variables are inlined at build time. **Never commit secret values.**
 
 ## Testing and quality gates
@@ -115,5 +117,8 @@ subject of 50 characters or fewer, no trailing period.
 
 ## Deployment
 
-Currently a Docker image built by a manually triggered CI workflow and deployed to a
-self-hosted server: see `DEPLOYMENT.md`.
+**Production is Netlify**, deployed by CLI after an approved push (the site is not git-linked).
+There is no CI deploy and no self-hosted container any more; the old Gitea workflow, `deploy.sh`
+and `docker-compose.yml` were removed. The `Dockerfile` remains as an unused container build. See
+`DEPLOYMENT.md`. This repo is **public**: commits carry no `Co-Authored-By` or other AI
+attribution.

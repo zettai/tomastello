@@ -28,7 +28,6 @@ Thumbs.db
 
 # Docker
 Dockerfile
-docker-compose.yml
 .dockerignore
 
 # Testing
