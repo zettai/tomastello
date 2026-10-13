@@ -37,6 +37,13 @@ export async function PUT(request: NextRequest, context: Params) {
     if (!parsed.ok) return parsed.response;
     const { title } = parsed.data;
 
+    if (title !== undefined && title.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Title cannot be blank" },
+        { status: 400 }
+      );
+    }
+
     const updated = await updateAudioMetadata(id, { title: title?.trim() });
 
     if (!updated) {

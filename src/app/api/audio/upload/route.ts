@@ -52,7 +52,10 @@ export async function POST(request: NextRequest) {
     if (!parsed.ok) return parsed.response;
 
     const file = parsed.data.file;
-    const title = parsed.data.title;
+    const title = parsed.data.title.trim();
+    if (!title) {
+      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    }
 
     if (!AUDIO_MIME_TYPES.has(file.type)) {
       await addSecurityEvent({

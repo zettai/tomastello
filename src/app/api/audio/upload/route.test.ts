@@ -81,7 +81,7 @@ describe("POST /api/audio/upload", () => {
     const file = new File(["data"], "s.mp3", { type: "audio/mpeg" });
     const res = await POST(createRequest("tok", makeFormData({ file })));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid request" });
+    expect(await res.json()).toEqual({ error: "Title is required" });
   });
 
   it("returns 400 if title is blank", async () => {
@@ -90,7 +90,7 @@ describe("POST /api/audio/upload", () => {
       createRequest("tok", makeFormData({ file, title: "   " }))
     );
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid request" });
+    expect(await res.json()).toEqual({ error: "Title is required" });
   });
 
   it("returns 400 if MIME type is not audio", async () => {

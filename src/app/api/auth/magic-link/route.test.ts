@@ -70,10 +70,10 @@ describe("POST /api/auth/magic-link", () => {
     });
   });
 
-  it("should return 400 Invalid request when email format is invalid", async () => {
+  it("should return 400 when email format is invalid", async () => {
     const res = await POST(postRequest({ email: "not-an-email" }));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid request" });
+    expect(await res.json()).toEqual({ error: "Enter a valid email address" });
     expect(requestLoginLink).not.toHaveBeenCalled();
   });
 });
