@@ -48,7 +48,7 @@ Open / logged:
   log.
 - **T:** moto honours `If-Match`/`If-None-Match`; whether **Scaleway** does is unverified
   (owner checklist). If it answers `NotImplemented`, the store falls back to plain writes.
-- **S4:** public-page findings here (unfocusable about text, `/swagger` served) are fixed on
+- **S4:** public-page findings here (unfocusable about text) are fixed on
   `fix/audit-minors`, which this branch doesn't include.
 - **S4 (pre-existing):** unlabelled image-selection checkboxes on `/admin`.
 

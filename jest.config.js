@@ -7,7 +7,7 @@ const createJestConfig = nextJest({
 const customJestConfig = {
     setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
     testEnvironment: 'jest-environment-jsdom',
-    // The self-hosted Gitea runner renders full pages (AdminPage, Swagger) far slower than CI
+    // The self-hosted Gitea runner renders full pages (e.g. AdminPage) far slower than CI
     testTimeout: 20000,
     moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',

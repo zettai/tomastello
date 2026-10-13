@@ -11,7 +11,7 @@ pull-deploy route was not taken, and those branches are gone.
 
 - [ ] **Dependency advisories.** `npm audit --omit=dev` was 39 and is 7 after `npm audit fix` and a
   `fast-xml-parser` override (critical cleared). The rest need major upgrades: `postcss` (Next 16),
-  `sharp` (via Next), `sprintf-js` (swagger-ui).
+  `sharp` (via Next).
 
 ## Resolved
 

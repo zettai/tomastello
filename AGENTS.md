@@ -34,12 +34,12 @@ npm run sonar                   # SonarQube scan + quality gate (same as CI)
   `ALLOW_NEW_REGISTRATIONS`.
 - **API routes** (`src/app/api/`) read and write bucket JSON through the lib helpers and
   return `NextResponse.json()`. Groups: `auth`, `images`, `audio` (including multipart
-  upload), `site`, `links`, `admin/security`, `health`, `swagger` (OpenAPI from JSDoc).
+  upload), `site`, `links`, `admin/security`, `health`.
 - **Pages:** `/` (public, client-rendered from `/api/site`), `/admin` (auth checked
-  client-side via `/api/auth/profile`), `/login` (magic link), `/swagger`.
+  client-side via `/api/auth/profile`), `/login` (magic link).
 - **Libs** (`src/lib/`): `api` (S3), `auth`, `metadata`, `audioMetadata`
   (track `order`), `site`, `links`, `rateLimiter` + `securityEvents` + `notifier` (upload
-  limits, lock, Resend alerts), `logger`, `swagger`.
+  limits, lock, Resend alerts), `logger`.
 - **Layout:** components in `src/components/`, types in `src/types/`, tests co-located as
   `*.test.ts[x]`.
 
@@ -83,8 +83,7 @@ The names of all settings are in `.env.production.example`. Local values go in
 ## Code style
 
 TypeScript strict; explicit types, no `any` outside tests. Small focused functions, JSDoc on
-exported APIs, and a `@swagger` JSDoc block on API routes. React: function components and
-hooks; `useMemo`/`useCallback` where they matter.
+exported APIs. React: function components and hooks; `useMemo`/`useCallback` where they matter.
 
 ## Workflow
 
