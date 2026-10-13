@@ -65,6 +65,8 @@ jest.mock("@/lib/cdn", () => ({
   purgePublicPages: jest.fn(),
 }));
 
+const VALID_IMAGE_KEY = "images/1700000000000-photo.jpg";
+
 describe("DELETE /api/images/delete", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -124,7 +126,27 @@ describe("DELETE /api/images/delete", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Image key is required" });
+    expect(data).toEqual({ error: "Invalid request" });
+  });
+
+  it("should return 400 when key is not an upload key", async () => {
+    (verifyToken as jest.Mock).mockResolvedValueOnce({
+      email: "test@example.com",
+    });
+
+    const request = new MockNextRequest(
+      "http://localhost:3000/api/images/delete?key=test.jpg",
+      {
+        method: "DELETE",
+        headers: {
+          cookie: "auth-token=valid-token",
+        },
+      }
+    );
+
+    const response = await DELETE(request as any);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid request" });
   });
 
   it("successfully deletes image with metadata", async () => {
@@ -133,7 +155,7 @@ describe("DELETE /api/images/delete", () => {
     });
     (getMetadataByFileName as jest.Mock).mockResolvedValueOnce({
       id: "test-id",
-      fileName: "test.jpg",
+      fileName: VALID_IMAGE_KEY,
     });
     (deleteImageMetadata as jest.Mock).mockResolvedValueOnce({});
     (scalewayClient.send as jest.Mock).mockResolvedValueOnce({});
@@ -141,7 +163,7 @@ describe("DELETE /api/images/delete", () => {
     (purgePublicPages as jest.Mock).mockResolvedValueOnce(undefined);
 
     const request = new MockNextRequest(
-      "http://localhost:3000/api/images/delete?key=test.jpg",
+      `http://localhost:3000/api/images/delete?key=${encodeURIComponent(VALID_IMAGE_KEY)}`,
       {
         method: "DELETE",
         headers: {
@@ -159,15 +181,15 @@ describe("DELETE /api/images/delete", () => {
       message: "Image and metadata deleted successfully",
     });
 
-    expect(getMetadataByFileName).toHaveBeenCalledWith("test.jpg");
+    expect(getMetadataByFileName).toHaveBeenCalledWith(VALID_IMAGE_KEY);
     expect(deleteImageMetadata).toHaveBeenCalledWith("test-id");
-    expect(removeSitePhotoByKey).toHaveBeenCalledWith("test.jpg");
+    expect(removeSitePhotoByKey).toHaveBeenCalledWith(VALID_IMAGE_KEY);
     expect(purgePublicPages).toHaveBeenCalled();
     expect(scalewayClient.send).toHaveBeenCalledWith(
       expect.objectContaining({
         input: {
           Bucket: "test-bucket",
-          Key: "test.jpg",
+          Key: VALID_IMAGE_KEY,
         },
       })
     );
@@ -183,7 +205,7 @@ describe("DELETE /api/images/delete", () => {
     (purgePublicPages as jest.Mock).mockResolvedValueOnce(undefined);
 
     const request = new MockNextRequest(
-      "http://localhost:3000/api/images/delete?key=test.jpg",
+      `http://localhost:3000/api/images/delete?key=${encodeURIComponent(VALID_IMAGE_KEY)}`,
       {
         method: "DELETE",
         headers: {
@@ -201,15 +223,15 @@ describe("DELETE /api/images/delete", () => {
       message: "Image and metadata deleted successfully",
     });
 
-    expect(getMetadataByFileName).toHaveBeenCalledWith("test.jpg");
+    expect(getMetadataByFileName).toHaveBeenCalledWith(VALID_IMAGE_KEY);
     expect(deleteImageMetadata).not.toHaveBeenCalled();
-    expect(removeSitePhotoByKey).toHaveBeenCalledWith("test.jpg");
+    expect(removeSitePhotoByKey).toHaveBeenCalledWith(VALID_IMAGE_KEY);
     expect(purgePublicPages).toHaveBeenCalled();
     expect(scalewayClient.send).toHaveBeenCalledWith(
       expect.objectContaining({
         input: {
           Bucket: "test-bucket",
-          Key: "test.jpg",
+          Key: VALID_IMAGE_KEY,
         },
       })
     );
@@ -221,14 +243,14 @@ describe("DELETE /api/images/delete", () => {
     });
     (getMetadataByFileName as jest.Mock).mockResolvedValueOnce({
       id: "test-id",
-      fileName: "test.jpg",
+      fileName: VALID_IMAGE_KEY,
     });
     (scalewayClient.send as jest.Mock).mockRejectedValueOnce(
       new Error("Delete failed")
     );
 
     const request = new MockNextRequest(
-      "http://localhost:3000/api/images/delete?key=test.jpg",
+      `http://localhost:3000/api/images/delete?key=${encodeURIComponent(VALID_IMAGE_KEY)}`,
       {
         method: "DELETE",
         headers: {
@@ -250,13 +272,13 @@ describe("DELETE /api/images/delete", () => {
     });
     (getMetadataByFileName as jest.Mock).mockResolvedValueOnce({
       id: "test-id",
-      fileName: "test.jpg",
+      fileName: VALID_IMAGE_KEY,
     });
     (scalewayClient.send as jest.Mock).mockResolvedValueOnce({});
     (deleteImageMetadata as jest.Mock).mockRejectedValueOnce(new ConflictError("metadata/test.json"));
 
     const request = new MockNextRequest(
-      "http://localhost:3000/api/images/delete?key=test.jpg",
+      `http://localhost:3000/api/images/delete?key=${encodeURIComponent(VALID_IMAGE_KEY)}`,
       {
         method: "DELETE",
         headers: {

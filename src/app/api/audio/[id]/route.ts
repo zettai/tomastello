@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { audioIdParamSchema, audioUpdateBodySchema } from "@/lib/apiSchemas";
 import { conflictResponse } from "@/lib/storeErrors";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
@@ -9,6 +10,7 @@ import {
 } from "@/lib/audioMetadata";
 import { purgePublicPages } from "@/lib/cdn";
 import { verifyToken } from "@/lib/auth";
+import { parseJsonBody, parseParams } from "@/lib/validateRequest";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -27,16 +29,13 @@ export async function PUT(request: NextRequest, context: Params) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const { id } = await context.params;
-    const body = await request.json();
-    const { title } = body as { title?: string };
+    const routeParams = parseParams(await context.params, audioIdParamSchema);
+    if (!routeParams.ok) return routeParams.response;
+    const { id } = routeParams.data;
 
-    if (title !== undefined && !title.trim()) {
-      return NextResponse.json(
-        { error: "Title cannot be blank" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseJsonBody(request, audioUpdateBodySchema);
+    if (!parsed.ok) return parsed.response;
+    const { title } = parsed.data;
 
     const updated = await updateAudioMetadata(id, { title: title?.trim() });
 
@@ -71,7 +70,9 @@ export async function DELETE(request: NextRequest, context: Params) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const { id } = await context.params;
+    const routeParams = parseParams(await context.params, audioIdParamSchema);
+    if (!routeParams.ok) return routeParams.response;
+    const { id } = routeParams.data;
 
     const allAudio = await getAudioMetadata();
     const audioItem = allAudio.find((a) => a.id === id);

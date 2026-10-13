@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminSecurityPostSchema } from "@/lib/apiSchemas";
 import { verifyToken } from "@/lib/auth";
 import { getSecurityEvents, getSystemLock, addSecurityEvent } from "@/lib/securityEvents";
 import { unlockSystem } from "@/lib/rateLimiter";
+import { parseJsonBody } from "@/lib/validateRequest";
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get("auth-token")?.value;
@@ -33,10 +35,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
 
-  const body = await request.json() as { action?: string };
-  if (body.action !== "unlock") {
-    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-  }
+  const parsed = await parseJsonBody(request, adminSecurityPostSchema);
+  if (!parsed.ok) return parsed.response;
 
   await unlockSystem();
   await addSecurityEvent({

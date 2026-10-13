@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { audioRelayUploadFormSchema } from "@/lib/apiSchemas";
 import { conflictResponse } from "@/lib/storeErrors";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
@@ -16,6 +17,7 @@ import {
   MAX_AUDIO_SIZE,
   publicObjectUrl,
 } from "@/lib/uploads";
+import { invalidRequestResponse, parseFormData } from "@/lib/validateRequest";
 
 const log = createLogger("audio/upload");
 
@@ -39,16 +41,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
-    const title = formData.get("title") as string | null;
+    const parsed = await parseFormData(
+      request,
+      audioRelayUploadFormSchema,
+      (formData) => ({
+        file: formData.get("file"),
+        title: formData.get("title"),
+      })
+    );
+    if (!parsed.ok) return parsed.response;
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
+    const file = parsed.data.file;
+    const title = parsed.data.title;
 
-    if (!title?.trim()) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    if (file.size > MAX_AUDIO_SIZE) {
+      await addSecurityEvent({
+        type: "upload_rejected_size",
+        ip,
+        userEmail: userPayload.email,
+        detail: `${file.size} bytes`,
+      });
+      return invalidRequestResponse();
     }
 
     if (!AUDIO_MIME_TYPES.has(file.type)) {
@@ -58,10 +71,7 @@ export async function POST(request: NextRequest) {
         userEmail: userPayload.email,
         detail: file.type,
       });
-      return NextResponse.json(
-        { error: "Only audio files are allowed" },
-        { status: 400 }
-      );
+      return invalidRequestResponse();
     }
 
     if (!audioExtensionMatches(file.name, file.type)) {
@@ -73,19 +83,6 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json(
         { error: "File extension does not match MIME type" },
-        { status: 400 }
-      );
-    }
-
-    if (file.size > MAX_AUDIO_SIZE) {
-      await addSecurityEvent({
-        type: "upload_rejected_size",
-        ip,
-        userEmail: userPayload.email,
-        detail: `${file.size} bytes`,
-      });
-      return NextResponse.json(
-        { error: "File exceeds the 100 MB limit" },
         { status: 400 }
       );
     }
@@ -124,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     const metadata = await addAudioMetadata({
       fileName,
-      title: title.trim(),
+      title,
       url: publicUrl,
       size: file.size,
       mimeType: file.type,

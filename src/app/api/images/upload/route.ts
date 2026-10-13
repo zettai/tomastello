@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { imageRelayUploadFormSchema, validateRelayImageFile } from "@/lib/apiSchemas";
 import { conflictResponse } from "@/lib/storeErrors";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
 import { addImageMetadata } from "@/lib/metadata";
 import { verifyToken } from "@/lib/auth";
 import { publicObjectUrl } from "@/lib/uploads";
+import { invalidRequestResponse, parseFormData } from "@/lib/validateRequest";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,28 +24,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const parsed = await parseFormData(
+      request,
+      imageRelayUploadFormSchema,
+      (formData) => ({ file: formData.get("file") })
+    );
+    if (!parsed.ok) return parsed.response;
+    const { file } = parsed.data;
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json(
-        { error: "Only image files are allowed" },
-        { status: 400 }
-      );
-    }
-
-    // Validate file size (30MB limit)
-    const maxSize = 30 * 1024 * 1024; // 30MB
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: "File size must be less than 30MB" },
-        { status: 400 }
-      );
+    if (!validateRelayImageFile(file)) {
+      return invalidRequestResponse();
     }
 
     // Generate unique filename

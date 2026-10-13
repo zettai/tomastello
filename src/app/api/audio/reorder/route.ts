@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { audioReorderBodySchema } from "@/lib/apiSchemas";
 import { conflictResponse } from "@/lib/storeErrors";
 import { reorderAudioMetadata } from "@/lib/audioMetadata";
 import { verifyToken } from "@/lib/auth";
+import { parseJsonBody } from "@/lib/validateRequest";
 
 export async function PUT(request: NextRequest) {
   try {
@@ -18,15 +20,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { ids } = body as { ids?: string[] };
-
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json(
-        { error: "ids must be a non-empty array" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseJsonBody(request, audioReorderBodySchema);
+    if (!parsed.ok) return parsed.response;
+    const { ids } = parsed.data;
 
     const result = await reorderAudioMetadata(ids);
 

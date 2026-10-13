@@ -95,7 +95,7 @@ describe("POST /api/images/upload", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "No file provided" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if file is not an image", async () => {
@@ -119,7 +119,7 @@ describe("POST /api/images/upload", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Only image files are allowed" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if file is too large", async () => {
@@ -143,7 +143,7 @@ describe("POST /api/images/upload", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "File size must be less than 30MB" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("successfully uploads an image", async () => {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { audioMultipartInitBodySchema } from "@/lib/apiSchemas";
 import { CreateMultipartUploadCommand } from "@aws-sdk/client-s3";
 import { scalewayClient, SCALEWAY_BUCKET } from "@/lib/api";
 import { verifyToken } from "@/lib/auth";
@@ -6,12 +7,12 @@ import { checkRateLimit } from "@/lib/rateLimiter";
 import { addSecurityEvent } from "@/lib/securityEvents";
 import { createLogger } from "@/lib/logger";
 import {
-  AUDIO_MIME_TYPES,
   audioExtensionMatches,
   buildObjectKey,
   getExtension,
   MAX_AUDIO_SIZE,
 } from "@/lib/uploads";
+import { invalidRequestResponse, parseJsonBody } from "@/lib/validateRequest";
 
 const log = createLogger("audio/upload/multipart/init");
 
@@ -30,32 +31,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json() as {
-      fileName?: string;
-      mimeType?: string;
-      size?: number;
-    };
-    const { fileName, mimeType, size } = body;
-
-    if (!fileName || !mimeType || size === undefined) {
-      return NextResponse.json(
-        { error: "fileName, mimeType, and size are required" },
-        { status: 400 }
-      );
-    }
-
-    if (!AUDIO_MIME_TYPES.has(mimeType)) {
-      await addSecurityEvent({
-        type: "upload_rejected_mime",
-        ip,
-        userEmail: userPayload.email,
-        detail: mimeType,
-      });
-      return NextResponse.json(
-        { error: "Only audio files are allowed" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseJsonBody(request, audioMultipartInitBodySchema);
+    if (!parsed.ok) return parsed.response;
+    const { fileName, mimeType, size } = parsed.data;
 
     if (!audioExtensionMatches(fileName, mimeType)) {
       await addSecurityEvent({
@@ -77,10 +55,7 @@ export async function POST(request: NextRequest) {
         userEmail: userPayload.email,
         detail: `${size} bytes`,
       });
-      return NextResponse.json(
-        { error: "File exceeds the 100 MB limit" },
-        { status: 400 }
-      );
+      return invalidRequestResponse();
     }
 
     const rateCheck = await checkRateLimit(ip, userPayload.email);

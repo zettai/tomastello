@@ -1,6 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  magicLinkGetQuerySchema,
+  magicLinkPostBodySchema,
+} from "@/lib/apiSchemas";
 import { redeemLoginLink, requestLoginLink } from "@/lib/auth/magic-link";
 import { seeOther } from "@/lib/auth/redirect";
+import { parseQuery, parseWithSchema } from "@/lib/validateRequest";
 
 function siteOrigin(request: Request): string {
   return (
@@ -20,8 +25,15 @@ function sessionCookieOptions() {
 }
 
 /** Redeem the token from the sign-in email and set the session cookie. */
-export async function GET(request: Request) {
-  const result = await redeemLoginLink(new URL(request.url).searchParams.get("token"));
+export async function GET(request: NextRequest) {
+  const parsed = parseQuery(
+    new URL(request.url).searchParams,
+    magicLinkGetQuerySchema,
+    ["token"]
+  );
+  if (!parsed.ok) return parsed.response;
+
+  const result = await redeemLoginLink(parsed.data.token);
   if (!result) return seeOther("/login?error=expired");
   const res = seeOther(result.next);
   res.cookies.set("auth-token", result.authToken, sessionCookieOptions());
@@ -33,10 +45,22 @@ export async function GET(request: Request) {
 /** Request a magic sign-in link (JSON body from the login page). */
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    let raw: unknown;
+    try {
+      raw = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+
+    const parsed = parseWithSchema(magicLinkPostBodySchema, raw);
+    if (!parsed.ok) {
+      return parsed.response;
+    }
+
+    const { email, next, redirect } = parsed.data;
     const origin = siteOrigin(request);
     const outcome = await requestLoginLink(
-      { email: body.email, next: body.next ?? body.redirect },
+      { email, next: next ?? redirect },
       request.headers,
       origin,
     );

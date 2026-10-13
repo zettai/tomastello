@@ -74,14 +74,14 @@ describe("POST /api/audio/upload", () => {
   it("returns 400 if no file", async () => {
     const res = await POST(createRequest("tok", makeFormData({})));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "No file provided" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if title is missing", async () => {
     const file = new File(["data"], "s.mp3", { type: "audio/mpeg" });
     const res = await POST(createRequest("tok", makeFormData({ file })));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Title is required" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if title is blank", async () => {
@@ -90,7 +90,7 @@ describe("POST /api/audio/upload", () => {
       createRequest("tok", makeFormData({ file, title: "   " }))
     );
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Title is required" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if MIME type is not audio", async () => {
@@ -99,11 +99,16 @@ describe("POST /api/audio/upload", () => {
       createRequest("tok", makeFormData({ file, title: "Song" }))
     );
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Only audio files are allowed" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if file extension does not match MIME type", async () => {
-    const file = new File(["data"], "s.mp3", { type: "audio/ogg" });
+    const file = {
+      name: "s.mp3",
+      size: 1024,
+      type: "audio/ogg",
+      arrayBuffer: () => Promise.resolve(new Uint8Array([1])),
+    } as unknown as File;
     const res = await POST(
       createRequest("tok", makeFormData({ file, title: "Song" }))
     );
@@ -124,9 +129,7 @@ describe("POST /api/audio/upload", () => {
       createRequest("tok", makeFormData({ file, title: "Big" }))
     );
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({
-      error: "File exceeds the 100 MB limit",
-    });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("returns 429 if rate-limited", async () => {
@@ -134,7 +137,12 @@ describe("POST /api/audio/upload", () => {
       allowed: false,
       reason: "IP upload rate limit exceeded",
     });
-    const file = new File(["data"], "s.mp3", { type: "audio/mpeg" });
+    const file = {
+      name: "s.mp3",
+      size: 1024,
+      type: "audio/mpeg",
+      arrayBuffer: () => Promise.resolve(new Uint8Array([1])),
+    } as unknown as File;
     const res = await POST(
       createRequest("tok", makeFormData({ file, title: "Song" }), "1.2.3.4")
     );

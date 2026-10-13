@@ -59,18 +59,18 @@ describe("POST /api/images/upload/presign", () => {
   });
 
   it.each([
-    ["invalid JSON", new Error("bad json"), "Invalid JSON"],
-    ["a missing name", { ...VALID, fileName: "" }, "fileName, contentType and size are required"],
-    ["a non-number size", { ...VALID, size: "2048" }, "fileName, contentType and size are required"],
-    ["an SVG", { ...VALID, contentType: "image/svg+xml" }, "Only JPEG, PNG, WebP, GIF and AVIF images are allowed"],
-    ["a non-image", { ...VALID, contentType: "text/html" }, "Only JPEG, PNG, WebP, GIF and AVIF images are allowed"],
-    ["an empty file", { ...VALID, size: 0 }, "File size must be a positive whole number"],
-    ["a negative size", { ...VALID, size: -1 }, "File size must be a positive whole number"],
-    ["a file over 30 MB", { ...VALID, size: 30 * 1024 * 1024 + 1 }, "File size must be less than 30MB"],
-  ])("should reject %s with 400", async (_label, body, error) => {
+    ["invalid JSON", new Error("bad json")],
+    ["a missing name", { ...VALID, fileName: "" }],
+    ["a non-number size", { ...VALID, size: "2048" }],
+    ["an SVG", { ...VALID, contentType: "image/svg+xml" }],
+    ["a non-image", { ...VALID, contentType: "text/html" }],
+    ["an empty file", { ...VALID, size: 0 }],
+    ["a negative size", { ...VALID, size: -1 }],
+    ["a file over 30 MB", { ...VALID, size: 30 * 1024 * 1024 + 1 }],
+  ])("should return 400 when %s", async (_label, body) => {
     const res = await POST(req(body));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
     expect(presignObjectPut).not.toHaveBeenCalled();
   });
 

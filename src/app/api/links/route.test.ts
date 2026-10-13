@@ -147,7 +147,7 @@ describe("POST /api/links", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Text and href are required" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if href is missing", async () => {
@@ -166,7 +166,7 @@ describe("POST /api/links", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Text and href are required" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if text is not a string", async () => {
@@ -187,7 +187,7 @@ describe("POST /api/links", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Text and href must be strings" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if href is not a string", async () => {
@@ -206,7 +206,7 @@ describe("POST /api/links", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Text and href must be strings" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("creates link successfully", async () => {
@@ -360,7 +360,7 @@ describe("DELETE /api/links", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Link ID is required" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 404 if link not found", async () => {

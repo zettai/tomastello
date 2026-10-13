@@ -66,7 +66,7 @@ describe("PUT /api/links/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Link ID is required" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if text is empty", async () => {
@@ -85,7 +85,7 @@ describe("PUT /api/links/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Text cannot be empty" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if href is empty", async () => {
@@ -104,7 +104,7 @@ describe("PUT /api/links/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Href cannot be empty" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if text is not a string", async () => {
@@ -123,7 +123,7 @@ describe("PUT /api/links/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Text must be a string" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if href is not a string", async () => {
@@ -142,7 +142,7 @@ describe("PUT /api/links/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: "Href must be a string" });
+    expect(data).toEqual({ error: "Invalid request" });
   });
 
   it("returns 404 if link not found", async () => {

@@ -46,13 +46,13 @@ describe("DELETE /api/audio/upload/multipart/abort", () => {
   it("returns 400 if uploadId is missing", async () => {
     const res = await DELETE(makeRequest({ key: "audio/1-k1.mp3" }, "tok"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "uploadId and key are required" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("returns 400 if key is missing", async () => {
     const res = await DELETE(makeRequest({ uploadId: "u1" }, "tok"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "uploadId and key are required" });
+    expect(await res.json()).toEqual({ error: "Invalid request" });
   });
 
   it("calls AbortMultipartUploadCommand and returns success", async () => {

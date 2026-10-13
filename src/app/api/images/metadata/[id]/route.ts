@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { imageMetadataUpdateBodySchema } from "@/lib/apiSchemas";
 import { conflictResponse } from "@/lib/storeErrors";
 import { updateImageMetadata } from "@/lib/metadata";
 import { verifyToken } from "@/lib/auth";
+import { parseJsonBody } from "@/lib/validateRequest";
 
 export async function PUT(request: NextRequest) {
   try {
@@ -19,14 +21,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const { id, ...updates } = await request.json();
-
-    if (!id) {
-      return NextResponse.json(
-        { error: "Image ID is required" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseJsonBody(request, imageMetadataUpdateBodySchema);
+    if (!parsed.ok) return parsed.response;
+    const { id, ...updates } = parsed.data;
 
     const updatedMetadata = await updateImageMetadata(id, updates);
 
