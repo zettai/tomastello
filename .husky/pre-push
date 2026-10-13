@@ -1,6 +1,7 @@
 #!/bin/sh
-# pre-push-gate.sh — CANONICAL template (harness-memory). Vendored per-repo as the pre-push hook
-# (.githooks/pre-push, or .husky/pre-push for husky repos). POSIX sh — works under both.
+# pre-push-gate.sh — CANONICAL copy: agent-workflow-kit/git-hooks/pre-push-gate.sh.
+# Vendored per-repo as the pre-push hook (.githooks/pre-push, or .husky/pre-push for husky repos).
+# POSIX sh — works under both. Edit it in the kit, then re-copy it to the vendored repos.
 #
 # THE fleet push gate: "commit freely, gate on push" (LLNZ standing-decisions, 2026-07-11),
 # mechanically enforced. A local commit costs nothing; a push triggers CI / deploy / publishes
