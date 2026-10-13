@@ -12,36 +12,6 @@ import { createLogger } from "@/lib/logger";
 
 const log = createLogger("images/upload/presign");
 
-/**
- * @swagger
- * /api/images/upload/presign:
- *   post:
- *     summary: Sign a direct image upload (presigned mode)
- *     description: Returns a URL valid for 5 minutes that the browser PUTs the image to, with the returned headers. The server picks the object key; size and type are signed. Then call /api/images/upload/complete.
- *     tags: [Images]
- *     security:
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [fileName, contentType, size]
- *             properties:
- *               fileName: { type: string, example: "photo.jpg" }
- *               contentType: { type: string, example: "image/jpeg" }
- *               size: { type: number, example: 204800 }
- *     responses:
- *       200:
- *         description: Signed upload
- *       400:
- *         description: Missing fields, type not allowed or file too large
- *       401:
- *         description: Not logged in
- *       409:
- *         description: Uploads are in relay mode
- */
 export async function POST(request: NextRequest) {
   const auth = await requireUser(request);
   if (auth.response) return auth.response;

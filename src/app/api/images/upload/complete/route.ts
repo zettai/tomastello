@@ -14,37 +14,6 @@ import { createLogger } from "@/lib/logger";
 
 const log = createLogger("images/upload/complete");
 
-/**
- * @swagger
- * /api/images/upload/complete:
- *   post:
- *     summary: Register a directly uploaded image (presigned mode)
- *     description: Checks the object the browser uploaded (size and type as the bucket reports them, not as the browser claims) and saves its metadata. An object that breaks the limits is deleted.
- *     tags: [Images]
- *     security:
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [key]
- *             properties:
- *               key: { type: string, example: "images/1748282806542-photo.jpg" }
- *               originalName: { type: string, example: "photo.jpg" }
- *     responses:
- *       200:
- *         description: Image registered
- *       400:
- *         description: Invalid key, or the uploaded object breaks the limits
- *       401:
- *         description: Not logged in
- *       404:
- *         description: Nothing was uploaded under that key
- *       409:
- *         description: Relay mode, or the image is already registered
- */
 export async function POST(request: NextRequest) {
   const auth = await requireUser(request);
   if (auth.response) return auth.response;

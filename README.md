@@ -29,8 +29,6 @@ files in an S3-compatible bucket (Scaleway Object Storage).
 
 **API**
 - App Router route handlers under `src/app/api/`
-- OpenAPI docs generated from JSDoc, browsable at `/swagger` in development (hidden in
-  production unless `ENABLE_API_DOCS=true`)
 
 ## Architecture
 

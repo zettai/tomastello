@@ -39,8 +39,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname),
   // Home loads bucket data at request time; don't bake an empty build-time shell (PPR).
   experimental: { ppr: false },
-  // Disable React strict mode to avoid warnings from swagger-ui-react
-  reactStrictMode: false,
+  reactStrictMode: true,
   images: {
     remotePatterns: [
       {
