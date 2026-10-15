@@ -13,7 +13,7 @@ staged=$(git diff --cached --name-only --diff-filter=ACM)
 patterns='(sk-ant-[A-Za-z0-9_-]{20,})|(AKIA[0-9A-Z]{16})|(-----BEGIN [A-Z ]*PRIVATE KEY-----)|(xox[baprs]-[A-Za-z0-9-]{10,})|(ghp_[A-Za-z0-9]{36})|(re_[A-Za-z0-9]{20,})|(eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.)|((SCW_SECRET_KEY|SCW_ACCESS_KEY|JWT_SECRET|RESEND_API_KEY|SONAR_TOKEN|secret|password|passwd|api[_-]?key|access[_-]?key|token)["'"'"' ]*[:=]["'"'"' ]*[A-Za-z0-9/+_-]{16,})'
 
 # Files that legitimately mention secret-shaped words (docs/examples) — skip them.
-skip_re='(\.env\.example|\.env\.production\.example|AGENTS\.md|SECURITY\.md|scripts/secret-scan\.sh|\.husky/)'
+skip_re='(AGENTS\.md|SECURITY\.md|scripts/secret-scan\.sh|\.husky/)'
 
 found=0
 while IFS= read -r file; do

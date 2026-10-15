@@ -25,15 +25,14 @@ The app reads every secret from the environment:
   `REGISTRY_USERNAME`
 
 Local values live in `.env.local` (gitignored). The names are listed in
-`.env.production.example`, names only, never values.
+[DEPLOYMENT.md#environment-variables](DEPLOYMENT.md#environment-variables), names only, never values.
 
 ## Pre-commit secret scan
 
 `.husky/pre-commit` runs `scripts/secret-scan.sh` before the tests. It is a
 dependency-free scan of staged changes that **blocks commits** containing credential-shaped
 strings (Scaleway/AWS keys, private-key blocks, JWTs, `re_*`, `ghp_*`, `*_TOKEN=…`, and so
-on). Doc and example files (`.env*.example`, `AGENTS.md`, `SECURITY.md`, the script itself)
-are skipped.
+on). Doc files (`AGENTS.md`, `SECURITY.md`, `DEPLOYMENT.md`, the script itself) are skipped.
 
 False positive? Review it, then `git commit --no-verify`.
 

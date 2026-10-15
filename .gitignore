@@ -37,9 +37,8 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
-!.env.production.example
 
 # Claude Code — share the repo-level config (slash commands) with the repo;
 # keep only personal/local bits out.

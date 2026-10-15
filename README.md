@@ -57,7 +57,7 @@ Requires Node.js 22 and a bucket on Scaleway (or any S3-compatible store).
 
 ```bash
 npm ci --legacy-peer-deps
-cp .env.production.example .env.local   # fill in the bucket keys and a JWT secret
+# create .env.local with the names from DEPLOYMENT.md#environment-variables
 npm run dev                             # http://localhost:3000
 ```
 
@@ -78,7 +78,7 @@ gets full admin access.
 
 Local S3 mock (no Scaleway): [docs/LOCAL-S3-DEV.md](docs/LOCAL-S3-DEV.md).
 
-All settings are listed, names only, in [`.env.production.example`](.env.production.example).
+All settings are listed, names only, in [DEPLOYMENT.md#environment-variables](DEPLOYMENT.md#environment-variables).
 
 ## Deployment
 

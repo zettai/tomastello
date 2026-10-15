@@ -62,9 +62,9 @@ command line, not git-linked. Keep the app serverless-friendly:
 
 ## Environment
 
-The names of all settings are in `.env.production.example`. Local values go in
-`.env.local` (gitignored). When you add a variable: add its name and a comment to
-`.env.production.example`.
+The names of all settings are in [DEPLOYMENT.md#environment-variables](DEPLOYMENT.md#environment-variables).
+Local values go in `.env.local` (gitignored). When you add a variable: add its name and a row to
+that section.
 `NEXT_PUBLIC_*` variables are inlined at build time. **Never commit secret values.**
 
 ## Testing and quality gates

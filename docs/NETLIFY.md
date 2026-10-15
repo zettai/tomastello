@@ -47,10 +47,11 @@ logs an error once and falls back to plain writes, so the site keeps working unp
 
 1. Netlify → Add new site → Import from GitHub → this repository, branch `poc/netlify`
    (or a deploy preview of it). Build settings come from `netlify.toml`.
-2. Site settings → Environment variables: the names in `.env.production.example`
+2. Site settings → Environment variables: the names in
+   [DEPLOYMENT.md#environment-variables](../DEPLOYMENT.md#environment-variables)
    (`SCW_*`, `SCALEWAY_*`, `JWT_SECRET`, `RESEND_API_KEY`, `NOTIFY_EMAIL_*`,
    `TOMASTELLO_ADMIN_EMAILS`, `TOMASTELLO_SITE_URL`, optional `TOMASTELLO_MAGIC_LINK_FROM`,
-   `ALLOW_NEW_REGISTRATIONS=false`, `USE_SECURE_COOKIES=true`). Leave `LOG_DIR` unset.
+   `USE_SECURE_COOKIES=true`). Leave `LOG_DIR` unset.
 3. Bucket CORS: allow `PUT` from the Netlify site's origin(s) and expose `ETag`
    (`docs/UPLOADS.md`). Use a **test bucket** first.
 4. Try it on the preview: sign in, upload a photo and a 50 MB+ audio file, reorder tracks, edit
