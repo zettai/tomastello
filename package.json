@@ -52,7 +52,7 @@
     "netlify-cli": "^23.15.1",
     "pa11y-ci": "^4.1.0",
     "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5"
   },
   "overrides": {
