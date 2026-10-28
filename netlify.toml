@@ -1,5 +1,6 @@
 # Next.js on Netlify (serverless functions + edge middleware). See docs/NETLIFY.md.
-# Deploys are CLI-only (the site is not linked to GitHub); nothing in .github/workflows deploys.
+# The site is linked to GitHub with auto-publishing locked: a push to main builds a deploy,
+# and publishing it is a separate, manual step. Nothing in .github/workflows deploys.
 [build]
   command = "npm run build"
   publish = ".next"

@@ -6,14 +6,12 @@ container is gone; there is no CI deploy and no container registry any more.
 
 ## How a release ships
 
-Deploys are done **from the command line**, not by a git push: the Netlify site is not linked to
-the GitHub repo. After an approved push to `main`, the owner runs a script that wraps
-`netlify deploy --prod` against this checkout (the Netlify CLI is a devDependency). Nothing in
-`.github/workflows` deploys.
+The Netlify site is linked to this repo with **auto-publishing locked**. A push to `main` builds a
+production deploy but does not publish it; the owner publishes it with "Publish deploy" in
+Netlify after checking the deploy's own URL. Nothing in `.github/workflows` deploys.
 
-If the site is ever linked to GitHub, first set Netlify's environment-variable site policy to
-"Require approval" or "Deploy without sensitive variables". This repo is public, and fork pull
-requests would otherwise build with production secrets.
+This repo is public, so Netlify's sensitive variable policy is set to **Require approval**: a pull
+request from a fork does not build with production secrets until it is approved.
 
 Rollback: in the Netlify UI, "Publish deploy" on an earlier deploy. Netlify keeps every deploy.
 
