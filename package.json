@@ -53,7 +53,7 @@
     "pa11y-ci": "^4.1.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^7"
   },
   "overrides": {
     "fast-xml-parser": "5.11.2"
