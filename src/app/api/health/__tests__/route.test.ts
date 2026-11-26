@@ -1,4 +1,4 @@
-import { GET, POST } from "../route";
+import { GET, dynamic } from "../route";
 
 jest.mock("next/server", () => ({
   NextResponse: {
@@ -25,16 +25,8 @@ describe("Health API", () => {
     });
   });
 
-  describe("POST", () => {
-    it("should return 405 Method Not Allowed", async () => {
-      const response = await POST();
-      const data = await response.json();
-
-      expect(response.status).toBe(405);
-      expect(data).toHaveProperty(
-        "message",
-        "Health check endpoint supports GET requests only"
-      );
-    });
+  it("stays static, so monitor polls never run a serverless function", () => {
+    // A POST handler or a dynamic setting here makes every poll a billed function call.
+    expect(dynamic).toBe("force-static");
   });
 });
